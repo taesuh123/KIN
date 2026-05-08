@@ -78,15 +78,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .month-day-labels{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:clamp(12px,2dvh,25px);flex-shrink:0}
 .month-day-lbl{font-size:clamp(18px,2.2dvh,23px);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-light);padding:0;text-align:center}
 .month-grid{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:minmax(0,1fr);border:1px solid var(--border-strong);border-radius:22px;overflow:hidden;background:var(--border-strong);gap:1px;flex:1;min-height:0}
-.month-cell{background:var(--surface);padding:clamp(12px,2.1dvh,27px) clamp(14px,1.45vw,30px);cursor:pointer;transition:background .1s;min-height:0;overflow:hidden}
+.month-cell{background:var(--surface);padding:clamp(8px,1.35dvh,18px) clamp(10px,1vw,18px);cursor:pointer;transition:background .1s;min-height:0;overflow:hidden;display:flex;flex-direction:column}
 .month-cell:hover{background:#FAFAF8}
 .month-cell.today{background:#F5FAF0}
 .month-cell.other-month{background:var(--bg)}
 .month-cell.other-month .cell-num{color:var(--text-light)}
 .cell-num{font-size:clamp(20px,2.6dvh,28px);font-weight:700;color:var(--text-muted);width:clamp(38px,5dvh,53px);height:clamp(38px,5dvh,53px);display:flex;align-items:center;justify-content:center;border-radius:50%;margin:0 0 clamp(4px,.7dvh,7px) 0}
 .month-cell.today .cell-num{background:var(--accent);color:#fff;font-weight:700}
-.cell-events{display:flex;flex-direction:column;gap:6px;align-items:flex-start;max-height:calc(100% - 45px);overflow-y:auto;padding-right:2px}
-.cell-event{font-size:clamp(14px,1.9dvh,22px);font-weight:700;padding:3px 10px;border-radius:8px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.cell-events{display:flex;flex:1;min-height:0;width:100%;flex-direction:column;gap:5px;align-items:stretch;overflow-y:auto;padding-right:2px}
+.cell-event{display:block;width:100%;min-height:24px;line-height:1.2;font-size:clamp(12px,1.55dvh,17px);font-weight:700;padding:4px 8px;border-radius:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .cell-event.cat-health{background:var(--info-light);color:var(--info)}
 .cell-event.cat-work{background:var(--purple-light);color:var(--purple)}
 .cell-event.cat-personal{background:var(--warn-light);color:var(--warn)}
@@ -739,7 +739,7 @@ function buildAIInsights(){
   const risks=[];
   if(unlinked.length)risks.push('<strong>'+unlinked.length+' session'+(unlinked.length!==1?'s are':' is')+' not linked to a goal</strong>, so effort may be undercounted in goal progress.');
   if(active.length&&!linked.length)risks.push('Active goals exist, but none have linked sessions yet. The next best move is to schedule one session for each active goal.');
-  if(notes.length<Math.min(3,events.length))risks.push('Few sessions include notes. Notes are where qualitative learning and measurable progress become visible.');
+  if(events.filter(e=>e.notes&&e.notes.trim()).length<Math.min(3,events.length))risks.push('Few sessions include notes. Notes are where qualitative learning and measurable progress become visible.');
   if(!risks.length)risks.push('No major tracking gaps stand out. Keep logging notes and linking sessions so the insight quality keeps improving.');
   return '<div class="ai-panel"><div class="ai-head"><div><div class="ai-title">AI <span>Insights</span></div><div class="ai-sub">A private on-device synthesis of everything submitted so far: goals, sessions, categories, skills, dates, durations, and notes.</div></div><div class="ai-badge">Local analysis</div></div>'+
     '<div class="ai-grid"><div class="ai-metric"><div class="ai-metric-num">'+goals.length+'</div><div class="ai-metric-label">Goals</div></div><div class="ai-metric"><div class="ai-metric-num">'+events.length+'</div><div class="ai-metric-label">Sessions</div></div><div class="ai-metric"><div class="ai-metric-num">'+hrs+'</div><div class="ai-metric-label">Hours</div></div><div class="ai-metric"><div class="ai-metric-num">'+linked.length+'</div><div class="ai-metric-label">Linked</div></div></div>'+
