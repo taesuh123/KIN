@@ -420,14 +420,11 @@ select.form-input{appearance:none}
     <div class="form-group"><label class="form-label">Category</label><div class="cat-pills" id="cat-pills-form"></div></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="ev-date"/></div>
-      <div class="form-group"><label class="form-label">Time</label><input class="form-input" type="time" id="ev-time"/></div>
+      <div class="form-group"><label class="form-label">Start Time</label><input class="form-input" type="time" step="60" id="ev-time"/></div>
     </div>
-    <div class="form-group"><label class="form-label">Duration</label>
-      <select class="form-input" id="ev-dur">
-        <option value="30">30 min</option><option value="60" selected>1 hour</option>
-        <option value="90">1.5 hours</option><option value="120">2 hours</option>
-        <option value="180">3 hours</option><option value="480">All day</option>
-      </select>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">End Time</label><input class="form-input" type="time" step="60" id="ev-end"/></div>
+      <div class="form-group"><label class="form-label">Calculated Duration</label><input class="form-input" id="ev-duration-label" value="1 hour" readonly/></div>
     </div>
     <div class="form-group"><label class="form-label">Link to Goal <span style="font-weight:400;opacity:.6">(optional)</span></label>
       <div class="goal-link-box">
@@ -560,13 +557,20 @@ function fd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')
 function ad(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
 function pd(s){const[y,m,dd]=s.split('-').map(Number);return new Date(y,m-1,dd);}
 function ft(t){const[h,m]=t.split(':').map(Number);return(h%12||12)+':'+(m<10?'0':'')+m+(h>=12?'pm':'am');}
+function tm(t){if(!t)return null;const[h,m]=t.split(':').map(Number);return h*60+m;}
+function mt(mins){const m=((mins%1440)+1440)%1440;return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');}
+function calcDur(start,end){const s=tm(start),e=tm(end);if(s===null||e===null)return 60;let d=e-s;if(d<=0)d+=1440;return Math.max(1,d);}
+function eventEnd(ev){return ev.end||mt(tm(ev.time||'09:00')+(ev.dur||60));}
+function timeRange(ev){if(!ev.time)return'All day';return ft(ev.time)+'–'+ft(eventEnd(ev));}
+function durLabel(mins){const h=Math.floor(mins/60),m=mins%60;return(h?h+' hour'+(h!==1?'s':''):'')+(h&&m?' ':'')+(m?m+' min':'')||'0 min';}
+function updateDurationLabel(){const el=document.getElementById('ev-duration-label');if(el)el.value=durLabel(calcDur(document.getElementById('ev-time').value,document.getElementById('ev-end').value));}
 function render(){renderLabel();if(currentView==='month')renderMonth();else renderWeek();renderMini();renderSidebar();}
 function renderLabel(){const M=['January','February','March','April','May','June','July','August','September','October','November','December'];document.getElementById('main-month-label').innerHTML=M[viewDate.getMonth()]+' <span class="cal-month-year">'+viewDate.getFullYear()+'</span>';}
 function buildDays(y,m){const first=new Date(y,m,1),last=new Date(y,m+1,0);let s=first.getDay();const days=[];for(let i=0;i<s;i++)days.push({date:ad(first,i-s),other:true});for(let dd=1;dd<=last.getDate();dd++)days.push({date:new Date(y,m,dd),other:false});while(days.length%7!==0)days.push({date:ad(new Date(y,m,last.getDate()),days.length-(s+last.getDate())+1),other:true});return days;}
 function renderMonth(){const y=viewDate.getFullYear(),m=viewDate.getMonth();const days=buildDays(y,m);const lbls=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];const c=document.getElementById('month-view');c.innerHTML='<div class="month-day-labels">'+lbls.map(l=>'<div class="month-day-lbl">'+l+'</div>').join('')+'</div><div class="month-grid" id="month-grid"></div>';const grid=document.getElementById('month-grid');days.forEach(({date,other})=>{const ds=fd(date),isT=ds===fd(today),dayEvs=events.filter(e=>e.date===ds);const cell=document.createElement('div');cell.className='month-cell'+(other?' other-month':'')+(isT?' today':'');cell.onclick=(ev)=>{if(ev.target===cell||ev.target.classList.contains('cell-num')||ev.target.classList.contains('cell-events'))openModalOnDate(ds);};const shown=dayEvs.slice(0,3),extra=dayEvs.length-3;let h=shown.map(ev=>'<div class="cell-event cat-'+ev.cat+'" onclick="showDetail(event,'+ev.id+')">'+ev.title+'</div>').join('');if(extra>0)h+='<div class="more-events">+'+extra+' more</div>';cell.innerHTML='<div class="cell-num">'+date.getDate()+'</div><div class="cell-events">'+h+'</div>';grid.appendChild(cell);});}
-function renderWeek(){const dow=viewDate.getDay(),ws=ad(viewDate,-dow);const days=Array.from({length:7},(_,i)=>ad(ws,i));const dn=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];const hrs=Array.from({length:17},(_,i)=>i+6);document.getElementById('week-view').innerHTML='<div class="week-header"><div></div>'+days.map((d,i)=>'<div class="week-day-col"><div class="week-day-name">'+dn[i]+'</div><div class="week-day-num'+(fd(d)===fd(today)?' today':'')+'">'+d.getDate()+'</div></div>').join('')+'</div><div class="week-body"><div class="week-time-labels">'+hrs.map(h=>'<div class="week-hour"><span class="week-hour-label">'+(h===12?'12pm':h<12?h+'am':(h-12)+'pm')+'</span></div>').join('')+'</div>'+days.map(d=>{const ds=fd(d);const de=events.filter(e=>e.date===ds&&e.time);return'<div class="week-col"><div class="week-col-inner">'+hrs.map(()=>'<div class="hour-line"></div>').join('')+de.map(ev=>{const[hh,mm]=ev.time.split(':').map(Number);const top=((hh-6)*60+mm)*(52/60);const ht=Math.max(20,(ev.dur||60)*(52/60));return'<div class="week-event cat-'+ev.cat+'" style="top:'+top+'px;height:'+ht+'px;" onclick="showDetail(event,'+ev.id+')">'+ev.title+'</div>';}).join('')+'</div></div>';}).join('')+'</div>';}
+function renderWeek(){const dow=viewDate.getDay(),ws=ad(viewDate,-dow);const days=Array.from({length:7},(_,i)=>ad(ws,i));const dn=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];const hrs=Array.from({length:17},(_,i)=>i+6);document.getElementById('week-view').innerHTML='<div class="week-header"><div></div>'+days.map((d,i)=>'<div class="week-day-col"><div class="week-day-name">'+dn[i]+'</div><div class="week-day-num'+(fd(d)===fd(today)?' today':'')+'">'+d.getDate()+'</div></div>').join('')+'</div><div class="week-body"><div class="week-time-labels">'+hrs.map(h=>'<div class="week-hour"><span class="week-hour-label">'+(h===12?'12pm':h<12?h+'am':(h-12)+'pm')+'</span></div>').join('')+'</div>'+days.map(d=>{const ds=fd(d);const de=events.filter(e=>e.date===ds&&e.time);return'<div class="week-col"><div class="week-col-inner">'+hrs.map(()=>'<div class="hour-line"></div>').join('')+de.map(ev=>{const[hh,mm]=ev.time.split(':').map(Number);const top=((hh-6)*60+mm)*(52/60);const ht=Math.max(20,(ev.dur||calcDur(ev.time,eventEnd(ev)))*(52/60));return'<div class="week-event cat-'+ev.cat+'" style="top:'+top+'px;height:'+ht+'px;" onclick="showDetail(event,'+ev.id+')">'+ev.title+'</div>';}).join('')+'</div></div>';}).join('')+'</div>';}
 function renderMini(){const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];document.getElementById('mini-month-label').textContent=M[miniDate.getMonth()]+' '+miniDate.getFullYear();const y=miniDate.getFullYear(),m=miniDate.getMonth();const days=buildDays(y,m);const grid=document.getElementById('mini-grid');grid.innerHTML=['S','M','T','W','T','F','S'].map(l=>'<div class="mini-day-label">'+l+'</div>').join('');days.forEach(({date,other})=>{const ds=fd(date),isT=ds===fd(today),hasEv=events.some(e=>e.date===ds);const div=document.createElement('div');div.className='mini-day'+(other?' other-month':'')+(isT?' today':'')+(hasEv&&!isT?' has-event':'');div.textContent=date.getDate();div.onclick=()=>{viewDate=new Date(date);miniDate=new Date(date);render();};grid.appendChild(div);});}
-function renderSidebar(){const cl=document.getElementById('cat-list');cl.innerHTML='';let any=false;Object.entries(CATS).forEach(([k,v])=>{const cnt=events.filter(e=>e.cat===k).length;if(cnt>0){any=true;const d=document.createElement('div');d.className='category-item';d.innerHTML='<span class="cat-dot" style="background:'+v.color+'"></span><span>'+v.label+'</span><span class="cat-count">'+cnt+'</span>';cl.appendChild(d);}});if(!any)cl.innerHTML='<div class="sidebar-empty">No events yet</div>';const up=events.filter(e=>pd(e.date)>=today).sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time)).slice(0,4);const ul=document.getElementById('upcoming-list');ul.innerHTML='';if(!up.length){ul.innerHTML='<div class="sidebar-empty">Nothing coming up</div>';return;}up.forEach(ev=>{const diff=Math.round((pd(ev.date)-today)/864e5);const when=diff===0?'Today':diff===1?'Tomorrow':'In '+diff+' days';const d=document.createElement('div');d.className='upcoming-item';d.style.borderLeftColor=CATS[ev.cat]?.color||'#ccc';d.innerHTML='<div class="upcoming-title">'+ev.title+'</div><div class="upcoming-meta">'+when+' &middot; '+(ev.time||'All day')+'</div>';d.onclick=e=>showDetail({clientX:240,clientY:300,stopPropagation:()=>{}},ev.id);ul.appendChild(d);});}
+function renderSidebar(){const cl=document.getElementById('cat-list');cl.innerHTML='';let any=false;Object.entries(CATS).forEach(([k,v])=>{const cnt=events.filter(e=>e.cat===k).length;if(cnt>0){any=true;const d=document.createElement('div');d.className='category-item';d.innerHTML='<span class="cat-dot" style="background:'+v.color+'"></span><span>'+v.label+'</span><span class="cat-count">'+cnt+'</span>';cl.appendChild(d);}});if(!any)cl.innerHTML='<div class="sidebar-empty">No events yet</div>';const up=events.filter(e=>pd(e.date)>=today).sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time)).slice(0,4);const ul=document.getElementById('upcoming-list');ul.innerHTML='';if(!up.length){ul.innerHTML='<div class="sidebar-empty">Nothing coming up</div>';return;}up.forEach(ev=>{const diff=Math.round((pd(ev.date)-today)/864e5);const when=diff===0?'Today':diff===1?'Tomorrow':'In '+diff+' days';const d=document.createElement('div');d.className='upcoming-item';d.style.borderLeftColor=CATS[ev.cat]?.color||'#ccc';d.innerHTML='<div class="upcoming-title">'+ev.title+'</div><div class="upcoming-meta">'+when+' &middot; '+timeRange(ev)+'</div>';d.onclick=e=>showDetail({clientX:240,clientY:300,stopPropagation:()=>{}},ev.id);ul.appendChild(d);});}
 
 /* ── GOALS ── */
 function renderGoals(){const tot=goals.length,done=goals.filter(g=>g.done).length,linked=events.filter(e=>e.gid).length;document.getElementById('goal-stats').innerHTML='<div class="stat-card"><div class="stat-label">Total Goals</div><div class="stat-num">'+tot+'</div><div class="stat-sub">'+done+' completed</div><div class="stat-bar"><div class="stat-bar-fill" style="width:'+(tot?Math.round(done/tot*100):0)+'%;background:var(--accent)"></div></div></div><div class="stat-card"><div class="stat-label">Active</div><div class="stat-num">'+(tot-done)+'</div><div class="stat-sub">in progress</div></div><div class="stat-card"><div class="stat-label">Sessions Logged</div><div class="stat-num">'+linked+'</div><div class="stat-sub">events tied to goals</div></div>';['personal','academic','professional'].forEach(type=>{const list=goals.filter(g=>g.type===type);document.getElementById('cnt-'+type).textContent=list.length;const el=document.getElementById('glist-'+type);if(!list.length){el.innerHTML='<div class="empty-goals">No '+type+' goals yet</div>';return;}el.innerHTML='';list.forEach(g=>{const lnk=events.filter(e=>e.gid===g.id);const card=document.createElement('div');card.className='goal-card'+(g.done?' done':'');card.innerHTML='<div class="goal-card-title"><span class="goal-checkbox'+(g.done?' checked':'')+'" onclick="toggleGoal(event,'+g.id+')"></span><span>'+g.title+'</span></div>'+(g.desc?'<div class="goal-card-desc">'+g.desc+'</div>':'')+(lnk.length?'<div class="goal-card-linked">&#9679; '+lnk.length+' session'+(lnk.length>1?'s':'')+' logged</div>':'');card.onclick=e=>{if(!e.target.classList.contains('goal-checkbox'))openGoalModal(type,g.id);};el.appendChild(card);});});}
@@ -724,6 +728,8 @@ function openModal(date){
   document.getElementById('ev-title').value='';
   document.getElementById('ev-date').value=date||fd(today);
   document.getElementById('ev-time').value='09:00';
+  document.getElementById('ev-end').value='10:00';
+  updateDurationLabel();
   document.getElementById('ev-notes').value='';
   document.getElementById('ev-gtype').value='';
   document.getElementById('ev-gid').style.display='none';
@@ -744,10 +750,13 @@ function updateGoalDrop(){const type=document.getElementById('ev-gtype').value;c
 function saveEvent(){
   const title=document.getElementById('ev-title').value.trim();
   if(!title){document.getElementById('ev-title').focus();return;}
+  const start=document.getElementById('ev-time').value;
+  const end=document.getElementById('ev-end').value;
+  const dur=calcDur(start,end);
   const gtv=document.getElementById('ev-gtype').value;
   const giel=document.getElementById('ev-gid');
   const gid=gtv&&giel.style.display!=='none'&&giel.value?parseInt(giel.value):null;
-  const ev={id:editingId||nextId++,title,cat:selCat,date:document.getElementById('ev-date').value,time:document.getElementById('ev-time').value,dur:parseInt(document.getElementById('ev-dur').value)||60,notes:document.getElementById('ev-notes').value,gtype:gtv||'',gid:gid||null,skills:[...evSelectedSkills]};
+  const ev={id:editingId||nextId++,title,cat:selCat,date:document.getElementById('ev-date').value,time:start,end,dur,notes:document.getElementById('ev-notes').value,gtype:gtv||'',gid:gid||null,skills:[...evSelectedSkills]};
   if(editingId){const i=events.findIndex(e=>e.id===editingId);if(i>=0)events[i]=ev;editingId=null;}else events.push(ev);
   sd('ev',events);closeModal();render();
 }
@@ -767,7 +776,7 @@ function showDetail(e,id){
   document.getElementById('detail-title').textContent=ev.title;
   const diff=Math.round((pd(ev.date)-today)/864e5);
   const when=diff===0?'Today':diff===1?'Tomorrow':diff===-1?'Yesterday':pd(ev.date).toLocaleDateString('en-US',{month:'short',day:'numeric'});
-  document.getElementById('detail-time').textContent=when+(ev.time?' \u00b7 '+ft(ev.time):'');
+  document.getElementById('detail-time').textContent=when+' \u00b7 '+timeRange(ev)+' \u00b7 '+durLabel(ev.dur||calcDur(ev.time,eventEnd(ev)));
   const gw=document.getElementById('detail-goal-wrap');
   if(ev.gid){const g=goals.find(x=>x.id===ev.gid);if(g){const t=GTYPES[g.type];gw.innerHTML='<div class="detail-goal-tag" style="background:'+t.bg+';color:'+t.color+'">&#9654; '+g.title+'</div>';}else gw.innerHTML='';}else gw.innerHTML='';
   const sw=document.getElementById('detail-skills');
@@ -789,7 +798,8 @@ function editEvent(){
   document.getElementById('ev-title').value=ev.title;
   document.getElementById('ev-date').value=ev.date;
   document.getElementById('ev-time').value=ev.time;
-  document.getElementById('ev-dur').value=ev.dur;
+  document.getElementById('ev-end').value=eventEnd(ev);
+  updateDurationLabel();
   document.getElementById('ev-notes').value=ev.notes;
   selCat=ev.cat;renderCatPills();
   document.getElementById('ev-gtype').value=ev.gtype||'';
@@ -801,6 +811,8 @@ function editEvent(){
   document.getElementById('modal-bg').classList.add('open');
 }
 
+document.getElementById('ev-time').addEventListener('input',updateDurationLabel);
+document.getElementById('ev-end').addEventListener('input',updateDurationLabel);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeDetail();closeGoalModal();}if(e.key==='Enter'&&document.getElementById('modal-bg').classList.contains('open')&&e.target.tagName!=='SELECT'&&e.target.id!=='skills-search')saveEvent();if(e.key==='Enter'&&document.getElementById('goal-modal-bg').classList.contains('open')&&e.target.tagName!=='SELECT')saveGoal();});
 document.addEventListener('click',e=>{const det=document.getElementById('event-detail');if(det.classList.contains('open')&&!det.contains(e.target))closeDetail();});
 
