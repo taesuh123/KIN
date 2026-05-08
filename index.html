@@ -78,14 +78,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .month-day-labels{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:clamp(12px,2dvh,25px);flex-shrink:0}
 .month-day-lbl{font-size:clamp(18px,2.2dvh,23px);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-light);padding:0;text-align:center}
 .month-grid{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:minmax(0,1fr);border:1px solid var(--border-strong);border-radius:22px;overflow:hidden;background:var(--border-strong);gap:1px;flex:1;min-height:0}
-.month-cell{background:var(--surface);padding:clamp(4px,.75dvh,10px) clamp(6px,.7vw,11px);cursor:pointer;transition:background .1s;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+.month-cell{background:var(--surface);padding:clamp(4px,.75dvh,10px) clamp(6px,.7vw,11px);cursor:pointer;transition:background .1s;min-height:0;overflow:hidden;display:grid;grid-template-columns:clamp(28px,3.4dvh,36px) minmax(0,1fr);grid-template-rows:1fr;column-gap:4px;align-items:start}
 .month-cell:hover{background:#FAFAF8}
 .month-cell.today{background:#F5FAF0}
 .month-cell.other-month{background:var(--bg)}
 .month-cell.other-month .cell-num{color:var(--text-light)}
-.cell-num{font-size:clamp(14px,1.75dvh,20px);font-weight:700;color:var(--text-muted);width:clamp(26px,3.2dvh,34px);height:clamp(26px,3.2dvh,34px);display:flex;align-items:center;justify-content:center;border-radius:50%;margin:0 0 clamp(2px,.3dvh,4px) 0}
+.cell-num{font-size:clamp(14px,1.75dvh,20px);font-weight:700;color:var(--text-muted);width:clamp(26px,3.2dvh,34px);height:clamp(26px,3.2dvh,34px);display:flex;align-items:center;justify-content:center;border-radius:50%;margin:0}
 .month-cell.today .cell-num{background:var(--accent);color:#fff;font-weight:700}
-.cell-events{display:flex;flex:1;min-height:0;width:100%;flex-direction:column;gap:2px;align-items:stretch;overflow:hidden}
+.cell-events{display:flex;min-height:0;width:100%;height:100%;flex-direction:column;gap:2px;align-items:stretch;overflow:hidden}
 .cell-event{display:block;width:100%;min-height:15px;line-height:1.08;font-size:clamp(9px,1.1dvh,12px);font-weight:700;padding:1px 6px;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .cell-event.cat-school,.cell-event.cat-health{background:var(--info-light);color:var(--info)}
 .cell-event.cat-work{background:var(--purple-light);color:var(--purple)}
