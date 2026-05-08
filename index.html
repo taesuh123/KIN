@@ -269,7 +269,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .cat-pill.cat-personal{background:var(--warn-light);color:var(--warn)}
 .cat-pill.cat-fitness{background:var(--accent-light);color:var(--accent)}
 .cat-pill.cat-finance{background:#FAEEDA;color:#993C1D}
-.gtype-pills{display:flex;gap:6px}
+.gtype-pills{display:flex;gap:6px;flex-wrap:wrap}
 .gtype-pill{padding:5px 14px;border-radius:20px;font-size:12.5px;font-weight:500;cursor:pointer;border:1.5px solid transparent;transition:all .12s;opacity:.65}
 .gtype-pill.selected{opacity:1;border-color:currentColor}
 .gtype-pill.personal{background:var(--warn-light);color:var(--warn)}
@@ -440,6 +440,7 @@ select.form-input{appearance:none}
       <div class="form-group"><label class="form-label">End Time</label><input class="form-input" type="time" step="60" id="ev-end"/></div>
       <div class="form-group"><label class="form-label">Calculated Duration</label><input class="form-input" id="ev-duration-label" value="1 hour" readonly/></div>
     </div>
+    <div class="form-group"><label class="form-label">Goal Area</label><div class="gtype-pills" id="ev-gtype-pills"></div></div>
     <div class="form-group"><label class="form-label">Link to Goal <span style="font-weight:400;opacity:.6">(optional)</span></label>
       <div class="goal-link-box">
         <div class="goal-check-list" id="ev-goal-checks"></div>
@@ -542,7 +543,7 @@ const DEFAULT_SKILLS=[
 
 const today=new Date();today.setHours(0,0,0,0);
 let viewDate=new Date(today),miniDate=new Date(today),currentView='month',currentPage='calendar';
-let activeEvId=null,editingId=null,editingGoalId=null,selCat='work',selGType='personal';
+let activeEvId=null,editingId=null,editingGoalId=null,selCat='work',selGType='personal',selEventGType='personal';
 let evSelectedSkills=[];
 let skillFilter='';
 
@@ -638,7 +639,8 @@ function toggleSkill(s){
   renderSelectedSkills();
 }
 function selectedGoalIds(){return Array.from(document.querySelectorAll('.goal-check-input:checked')).map(el=>parseInt(el.value)).filter(Boolean);}
-function renderGoalChecks(selected=[]){const wrap=document.getElementById('ev-goal-checks');const active=goals.filter(g=>!g.done);if(!active.length){wrap.innerHTML='<div class="sidebar-empty">No active goals yet</div>';document.getElementById('ev-gpreview').innerHTML='';return;}wrap.innerHTML=active.map(g=>'<label class="goal-check-row"><input class="goal-check-input" type="checkbox" value="'+g.id+'" '+(selected.includes(g.id)?'checked':'')+' onchange="updateGoalPreview();autoSelectSkills(true)"><span><strong>'+esc(g.title)+'</strong><br><span style="color:var(--text-muted)">'+GTYPES[g.type].label+'</span></span></label>').join('');updateGoalPreview();}
+function renderEventGTypePills(){const c=document.getElementById('ev-gtype-pills');c.innerHTML='';Object.entries(GTYPES).forEach(([k])=>{const p=document.createElement('div');p.className='gtype-pill '+k+(selEventGType===k?' selected':'');p.textContent=GTYPES[k].label;p.onclick=()=>{selEventGType=k;renderEventGTypePills();renderGoalChecks([]);autoSelectSkills(true);};c.appendChild(p);});}
+function renderGoalChecks(selected=[]){const wrap=document.getElementById('ev-goal-checks');const active=goals.filter(g=>!g.done&&g.type===selEventGType);if(!active.length){wrap.innerHTML='<div class="sidebar-empty">No active '+GTYPES[selEventGType].label.toLowerCase()+' goals yet</div>';document.getElementById('ev-gpreview').innerHTML='';return;}wrap.innerHTML=active.map(g=>'<label class="goal-check-row"><input class="goal-check-input" type="checkbox" value="'+g.id+'" '+(selected.includes(g.id)?'checked':'')+' onchange="updateGoalPreview();autoSelectSkills(true)"><span><strong>'+esc(g.title)+'</strong><br><span style="color:var(--text-muted)">'+GTYPES[g.type].label+'</span></span></label>').join('');updateGoalPreview();}
 function updateGoalPreview(){const pv=document.getElementById('ev-gpreview');const picked=selectedGoalIds().map(id=>goals.find(g=>g.id===id)).filter(Boolean);pv.innerHTML=picked.map(g=>{const t=GTYPES[g.type];return'<div class="linked-badge" style="background:'+t.bg+';color:'+t.color+'">&#10003; '+esc(g.title)+'</div>';}).join('');}
 function skillSuggestionPool(text){
   const t=text.toLowerCase(),hits=[];
@@ -763,6 +765,8 @@ function openModal(date){
   document.getElementById('ev-end').value='10:00';
   updateDurationLabel();
   document.getElementById('ev-notes').value='';
+  selEventGType='personal';
+  renderEventGTypePills();
   renderGoalChecks([]);
   evSelectedSkills=[];
   skillFilter='';
@@ -785,7 +789,7 @@ function saveEvent(){
   const dur=calcDur(start,end);
   const gids=selectedGoalIds();
   const firstGoal=goals.find(g=>g.id===gids[0]);
-  const ev={id:editingId||nextId++,title,cat:selCat,date:document.getElementById('ev-date').value,time:start,end,dur,notes:document.getElementById('ev-notes').value,gtype:firstGoal?.type||'',gid:gids[0]||null,gids,skills:[...evSelectedSkills]};
+  const ev={id:editingId||nextId++,title,cat:selCat,date:document.getElementById('ev-date').value,time:start,end,dur,notes:document.getElementById('ev-notes').value,gtype:firstGoal?.type||selEventGType,gid:gids[0]||null,gids,skills:[...evSelectedSkills]};
   if(editingId){const i=events.findIndex(e=>e.id===editingId);if(i>=0)events[i]=ev;editingId=null;}else events.push(ev);
   sd('ev',events);closeModal();render();
 }
@@ -832,6 +836,9 @@ function editEvent(){
   updateDurationLabel();
   document.getElementById('ev-notes').value=ev.notes;
   selCat=ev.cat;renderCatPills();
+  const linkedGoals=eventGoalTags(ev);
+  selEventGType=linkedGoals[0]?.type||ev.gtype||'personal';
+  renderEventGTypePills();
   renderGoalChecks(eventGoalIds(ev));
   evSelectedSkills=[...(ev.skills||[])];
   skillFilter='';
