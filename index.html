@@ -38,11 +38,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 
 /* CALENDAR */
 .main{display:flex;flex:1;min-height:0;overflow:hidden;width:100%}
-.sidebar{width:clamp(320px,22vw,430px);flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:clamp(18px,2.4dvh,30px) clamp(22px,1.8vw,34px);overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:clamp(16px,2.35dvh,28px)}
+.sidebar{width:clamp(320px,22vw,430px);flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:clamp(16px,2dvh,26px) clamp(22px,1.8vw,34px);overflow:hidden;display:flex;flex-direction:column;gap:clamp(12px,1.55dvh,20px)}
 .sidebar-section{min-height:0;flex:0 0 auto}
 .sidebar-section+.sidebar-section{padding-top:clamp(2px,.45dvh,6px)}
 .coming-section{flex-shrink:0}
 .sidebar-section-label{font-size:clamp(13px,.9vw,17px);font-weight:700;letter-spacing:.055em;text-transform:uppercase;color:var(--text-light);margin-bottom:clamp(8px,1.1dvh,13px)}
+.category-section .sidebar-section-label,.coming-section .sidebar-section-label{font-size:clamp(11px,.72vw,14px);margin-bottom:clamp(5px,.65dvh,8px)}
 .mini-cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:clamp(8px,1.4dvh,16px)}
 .mini-cal-title{font-size:clamp(18px,1.2vw,24px);font-weight:600;line-height:1}
 .mini-nav{display:flex;gap:clamp(6px,.8vw,12px)}
@@ -55,15 +56,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .mini-day.today{background:var(--accent);color:#fff;font-weight:700;border-radius:8px}
 .mini-day.other-month{color:var(--text-light)}
 .mini-day.has-event::after{content:'';position:absolute;left:50%;bottom:1px;transform:translateX(-50%);width:5px;height:5px;background:var(--accent-mid);border-radius:50%}
-.category-list{display:flex;flex-direction:column;gap:clamp(8px,1.3dvh,16px)}
-.category-item{display:flex;align-items:center;gap:12px;padding:0 10px;border-radius:var(--r-sm);font-size:clamp(15px,1.05vw,21px);font-weight:500}
-.cat-dot{width:13px;height:13px;border-radius:50%;flex-shrink:0}
-.cat-count{margin-left:auto;font-size:clamp(13px,.9vw,17px);color:var(--text-light);background:var(--surface2);padding:3px 9px;border-radius:999px}
-.upcoming-list{display:flex;flex-direction:column;gap:clamp(7px,1dvh,10px);min-height:0;overflow:hidden}
-.upcoming-item{min-width:0;min-height:0;padding:clamp(10px,1.25dvh,14px) 16px;background:var(--surface2);border-radius:9px;border-left:5px solid var(--accent);cursor:pointer;transition:opacity .12s;overflow:hidden}
+.category-list{display:flex;flex-direction:column;gap:clamp(4px,.65dvh,8px)}
+.category-item{display:flex;align-items:center;gap:9px;padding:0 6px;border-radius:var(--r-sm);font-size:clamp(12px,.82vw,16px);font-weight:500;line-height:1.15;min-height:clamp(22px,2.4dvh,30px)}
+.cat-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.cat-count{margin-left:auto;font-size:clamp(10px,.72vw,13px);color:var(--text-light);background:var(--surface2);padding:2px 7px;border-radius:999px}
+.upcoming-list{display:flex;flex-direction:column;gap:clamp(4px,.6dvh,7px);min-height:0;overflow:hidden}
+.upcoming-item{min-width:0;min-height:0;padding:clamp(6px,.75dvh,9px) 10px;background:var(--surface2);border-radius:8px;border-left:4px solid var(--accent);cursor:pointer;transition:opacity .12s;overflow:hidden}
 .upcoming-item:hover{opacity:.8}
-.upcoming-title{font-size:clamp(14px,1vw,19px);font-weight:600;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.upcoming-meta{font-size:clamp(12px,.86vw,16px);color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.upcoming-title{font-size:clamp(11px,.78vw,14px);font-weight:600;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.upcoming-meta{font-size:clamp(10px,.7vw,12.5px);color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sidebar-empty{font-size:clamp(13px,.9vw,17px);color:var(--text-light);padding:3px 6px}
 .cal-content{flex:1;min-width:0;min-height:0;overflow:hidden;display:flex;flex-direction:column;background:var(--bg)}
 .cal-toolbar{height:clamp(82px,10.5dvh,126px);padding:clamp(16px,2.8dvh,32px) clamp(24px,2vw,40px) clamp(16px,2.8dvh,32px) clamp(28px,2.4vw,48px);display:flex;align-items:center;gap:clamp(16px,1.65vw,32px);background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
@@ -458,7 +459,7 @@ select.form-input{appearance:none}
 <div class="page active" id="page-calendar">
 <div class="main">
   <aside class="sidebar">
-    <div class="sidebar-section">
+    <div class="sidebar-section nav-section">
       <div class="sidebar-section-label">Navigate</div>
       <div class="mini-cal-header">
         <span class="mini-cal-title" id="mini-month-label"></span>
@@ -466,7 +467,7 @@ select.form-input{appearance:none}
       </div>
       <div class="mini-grid" id="mini-grid"></div>
     </div>
-    <div class="sidebar-section">
+    <div class="sidebar-section category-section">
       <div class="sidebar-section-label">Categories</div>
       <div class="category-list" id="cat-list"></div>
     </div>
