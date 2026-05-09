@@ -33,10 +33,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .nav-actions{display:flex;gap:8px;align-items:center}
 .btn-primary{display:flex;align-items:center;gap:8px;padding:clamp(12px,1.3dvh,17px) clamp(18px,1.55vw,28px);background:var(--accent);color:#fff;border:none;border-radius:11px;font-size:clamp(19px,1.35vw,26px);font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:opacity .15s;line-height:1}
 .btn-primary:hover{opacity:.88}
-.auth-btn{border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:10px;padding:10px 13px;font:700 13px/1 'DM Sans',sans-serif;cursor:pointer;white-space:nowrap}
-.auth-btn.signed-in{background:var(--accent-light);border-color:transparent;color:var(--accent)}
-.auth-user{max-width:145px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;color:var(--text-muted);font-weight:700}
-.auth-status{font-size:11px;color:var(--text-light);font-weight:700}
 .page{display:none;flex:1;overflow:hidden}
 .page.active{display:flex}
 
@@ -453,9 +449,6 @@ select.form-input{appearance:none}
     <button class="nav-tab" onclick="switchPage('agent')">Agent</button>
   </div>
   <div class="nav-actions">
-    <span class="auth-status" id="auth-status">Local only</span>
-    <span class="auth-user" id="auth-user"></span>
-    <button class="auth-btn" id="auth-btn" onclick="handleAuthClick()">Sign in with Google</button>
     <button class="btn-primary" id="nav-btn" onclick="navClick()">+ Add Event</button>
   </div>
 </nav>
@@ -616,68 +609,6 @@ select.form-input{appearance:none}
   </div>
 </div>
 
-<script type="module">
-// Firebase Spark-safe setup: Google Auth + Cloud Firestore only.
-// Replace these placeholder values with your Firebase web app config.
-const firebaseConfig = {
-  apiKey: "PASTE_FIREBASE_API_KEY",
-  authDomain: "PASTE_PROJECT_ID.firebaseapp.com",
-  projectId: "PASTE_PROJECT_ID",
-  appId: "PASTE_FIREBASE_APP_ID"
-};
-
-const hasFirebaseConfig = !firebaseConfig.apiKey.startsWith("PASTE_") && !firebaseConfig.projectId.startsWith("PASTE_");
-
-if (hasFirebaseConfig) {
-  const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js");
-  const { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js");
-  const { getFirestore, collection, getDocs, setDoc, doc, deleteDoc, serverTimestamp } = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js");
-
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-  const provider = new GoogleAuthProvider();
-
-  const goalsPath = uid => collection(db, "users", uid, "goals");
-  const goalRef = (uid, goalId) => doc(db, "users", uid, "goals", String(goalId));
-
-  window.goaltrackFirebase = {
-    enabled: true,
-    currentUser: null,
-    async signIn() {
-      await signInWithPopup(auth, provider);
-    },
-    async signOut() {
-      await signOut(auth);
-    },
-    async loadGoals(uid) {
-      const snap = await getDocs(goalsPath(uid));
-      return snap.docs.map(d => ({ id: Number(d.id) || d.id, ...d.data() })).sort((a, b) => Number(a.id) - Number(b.id));
-    },
-    async saveGoal(goal) {
-      if (!auth.currentUser) return;
-      await setDoc(goalRef(auth.currentUser.uid, goal.id), { ...goal, updatedAt: serverTimestamp() }, { merge: true });
-    },
-    async saveAllGoals(goalList) {
-      if (!auth.currentUser) return;
-      await Promise.all(goalList.map(goal => this.saveGoal(goal)));
-    },
-    async deleteGoal(goalId) {
-      if (!auth.currentUser) return;
-      await deleteDoc(goalRef(auth.currentUser.uid, goalId));
-    }
-  };
-
-  onAuthStateChanged(auth, user => {
-    window.goaltrackFirebase.currentUser = user;
-    window.onGoalTrackFirebaseAuth?.(user);
-  });
-} else {
-  window.goaltrackFirebase = { enabled: false, currentUser: null };
-  window.onGoalTrackFirebaseUnavailable?.();
-}
-</script>
-
 <script>
 const CATS={work:{label:'Work',color:'#534AB7',bg:'#EEEDFE'},school:{label:'School',color:'#185FA5',bg:'#E6F1FB'},fitness:{label:'Fitness',color:'#2C5F2E',bg:'#EAF3DE'},personal:{label:'Personal',color:'#BA7517',bg:'#FAEEDA'},finance:{label:'Finance',color:'#993C1D',bg:'#FAECE7'}};
 const GTYPES={personal:{label:'Personal',color:'#BA7517',bg:'#FAEEDA'},academic:{label:'Academic',color:'#185FA5',bg:'#E6F1FB'},professional:{label:'Professional',color:'#534AB7',bg:'#EEEDFE'}};
@@ -748,40 +679,6 @@ if(!agentChats.some(c=>c.id===activeAgentChatId)){activeAgentChatId=agentChats[0
 let selectedProgressGoalId=ld('progress_goal',null);
 let nextId=Math.max(...events.map(e=>e.id),0)+1;
 let nextGId=Math.max(...goals.map(g=>g.id),0)+1;
-let firebaseUser=null;
-let cloudGoalsLoaded=false;
-
-function updateAuthUI(){
-  const api=window.goaltrackFirebase,btn=document.getElementById('auth-btn'),status=document.getElementById('auth-status'),userEl=document.getElementById('auth-user');
-  if(!btn||!status||!userEl)return;
-  if(!api?.enabled){status.textContent='Local only';userEl.textContent='';btn.textContent='Add Firebase config';btn.classList.remove('signed-in');btn.disabled=true;return;}
-  if(firebaseUser){status.textContent='Cloud sync';userEl.textContent=firebaseUser.displayName||firebaseUser.email||'Signed in';btn.textContent='Sign out';btn.classList.add('signed-in');btn.disabled=false;}
-  else{status.textContent='Local only';userEl.textContent='';btn.textContent='Sign in with Google';btn.classList.remove('signed-in');btn.disabled=false;}
-}
-async function handleAuthClick(){
-  const api=window.goaltrackFirebase;
-  if(!api?.enabled)return;
-  try{firebaseUser?await api.signOut():await api.signIn();}
-  catch(err){alert('Google sign-in failed: '+(err.message||err));}
-}
-async function onGoalTrackFirebaseAuth(user){
-  firebaseUser=user||null;
-  updateAuthUI();
-  if(!user){cloudGoalsLoaded=false;return;}
-  try{
-    const cloudGoals=await window.goaltrackFirebase.loadGoals(user.uid);
-    if(cloudGoals.length){goals=cloudGoals.map(g=>({...g,id:Number(g.id)||g.id}));sd('goals',goals);}
-    else if(goals.length){await window.goaltrackFirebase.saveAllGoals(goals);}
-    nextGId=Math.max(...goals.map(g=>Number(g.id)||0),0)+1;
-    cloudGoalsLoaded=true;
-    renderGoals();render();
-  }catch(err){alert('Could not load Firebase goals: '+(err.message||err));}
-}
-function onGoalTrackFirebaseUnavailable(){updateAuthUI();}
-async function persistGoal(g){sd('goals',goals);if(firebaseUser&&window.goaltrackFirebase?.enabled){try{await window.goaltrackFirebase.saveGoal(g);}catch(err){console.warn('Firebase goal save failed',err);}}}
-async function persistAllGoals(){sd('goals',goals);if(firebaseUser&&window.goaltrackFirebase?.enabled){try{await window.goaltrackFirebase.saveAllGoals(goals);}catch(err){console.warn('Firebase goals save failed',err);}}}
-async function removeCloudGoal(id){if(firebaseUser&&window.goaltrackFirebase?.enabled){try{await window.goaltrackFirebase.deleteGoal(id);}catch(err){console.warn('Firebase goal delete failed',err);}}}
-updateAuthUI();
 
 /* ── PAGE SWITCHING ── */
 function switchPage(p){currentPage=p;document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));document.querySelectorAll('.nav-tab').forEach((el,i)=>{const pgs=['calendar','goals','habits','progress','agent'];el.classList.toggle('active',pgs[i]===p);});document.getElementById('page-'+p).classList.add('active');const btn=document.getElementById('nav-btn');if(p==='calendar'){btn.textContent='+ Add Event';btn.style.display='';}else btn.style.display='none';if(p==='goals')renderGoals();else if(p==='habits')renderHabits();else if(p==='progress')renderProgress();else if(p==='agent')renderAgentPage();else render();}
@@ -817,7 +714,7 @@ function renderSidebar(){const cl=document.getElementById('cat-list');cl.innerHT
 
 /* ── GOALS ── */
 function renderGoals(){const tot=goals.length,done=goals.filter(g=>g.done).length,linked=events.filter(e=>eventGoalIds(e).length).length;document.getElementById('goal-stats').innerHTML='<div class="stat-card"><div class="stat-label">Total Goals</div><div class="stat-num">'+tot+'</div><div class="stat-sub">'+done+' completed</div><div class="stat-bar"><div class="stat-bar-fill" style="width:'+(tot?Math.round(done/tot*100):0)+'%;background:var(--accent)"></div></div></div><div class="stat-card"><div class="stat-label">Active</div><div class="stat-num">'+(tot-done)+'</div><div class="stat-sub">in progress</div></div><div class="stat-card"><div class="stat-label">Sessions Logged</div><div class="stat-num">'+linked+'</div><div class="stat-sub">events tied to goals</div></div>';['personal','academic','professional'].forEach(type=>{const list=goals.filter(g=>g.type===type);document.getElementById('cnt-'+type).textContent=list.length;const el=document.getElementById('glist-'+type);if(!list.length){el.innerHTML='<div class="empty-goals">No '+type+' goals yet</div>';return;}el.innerHTML='';list.forEach(g=>{const lnk=linkedEventsForGoal(g.id);const card=document.createElement('div');card.className='goal-card'+(g.done?' done':'');card.innerHTML='<div class="goal-card-title"><span class="goal-checkbox'+(g.done?' checked':'')+'" onclick="toggleGoal(event,'+g.id+')"></span><span>'+esc(g.title)+'</span></div>'+(g.desc?'<div class="goal-card-desc">'+esc(g.desc)+'</div>':'')+(lnk.length?'<div class="goal-card-linked">&#9679; '+lnk.length+' session'+(lnk.length>1?'s':'')+' logged</div>':'');card.onclick=e=>{if(!e.target.classList.contains('goal-checkbox'))openGoalModal(type,g.id);};el.appendChild(card);});});}
-function toggleGoal(e,id){e.stopPropagation();const g=goals.find(x=>x.id===id);if(g){g.done=!g.done;persistGoal(g);renderGoals();}}
+function toggleGoal(e,id){e.stopPropagation();const g=goals.find(x=>x.id===id);if(g){g.done=!g.done;sd('goals',goals);renderGoals();}}
 
 /* ── SKILLS UI ── */
 function filterSkills(){
@@ -1060,8 +957,8 @@ function saveEvent(){
 function openGoalModal(type,editId){editingGoalId=editId||null;document.getElementById('goal-modal-title').textContent=editId?'Edit Goal':'Add Goal';document.getElementById('goal-delete-btn').style.display=editId?'':'none';const g=editId?goals.find(x=>x.id===editId):null;document.getElementById('goal-title').value=g?g.title:'';document.getElementById('goal-desc').value=g?g.desc:'';selGType=g?g.type:(type||'personal');renderGTypePills();document.getElementById('goal-modal-bg').classList.add('open');setTimeout(()=>document.getElementById('goal-title').focus(),50);}
 function closeGoalModal(){document.getElementById('goal-modal-bg').classList.remove('open');}
 function renderGTypePills(){const c=document.getElementById('gtype-pills');c.innerHTML='';Object.entries(GTYPES).forEach(([k])=>{const p=document.createElement('div');p.className='gtype-pill '+k+(selGType===k?' selected':'');p.textContent=GTYPES[k].label;p.onclick=()=>{selGType=k;renderGTypePills();};c.appendChild(p);});}
-function saveGoal(){const title=document.getElementById('goal-title').value.trim();if(!title){document.getElementById('goal-title').focus();return;}const g={id:editingGoalId||nextGId++,title,type:selGType,desc:document.getElementById('goal-desc').value,done:editingGoalId?goals.find(x=>x.id===editingGoalId)?.done||false:false};if(editingGoalId){const i=goals.findIndex(x=>x.id===editingGoalId);if(i>=0)goals[i]=g;editingGoalId=null;}else goals.push(g);persistGoal(g);closeGoalModal();renderGoals();}
-function deleteGoalFromModal(){if(!editingGoalId)return;const deletedId=editingGoalId;const g=goals.find(x=>x.id===deletedId);if(!g||!confirm('Delete "'+g.title+'"? Events will stay, but this goal link will be removed.'))return;goals=goals.filter(x=>x.id!==deletedId);events=events.map(ev=>{const gids=eventGoalIds(ev).filter(id=>id!==deletedId);return{...ev,gids,gid:gids[0]||null,gtype:(goals.find(gg=>gg.id===gids[0])?.type)||''};});persistAllGoals();removeCloudGoal(deletedId);sd('ev',events);editingGoalId=null;closeGoalModal();renderGoals();render();}
+function saveGoal(){const title=document.getElementById('goal-title').value.trim();if(!title){document.getElementById('goal-title').focus();return;}const g={id:editingGoalId||nextGId++,title,type:selGType,desc:document.getElementById('goal-desc').value,done:editingGoalId?goals.find(x=>x.id===editingGoalId)?.done||false:false};if(editingGoalId){const i=goals.findIndex(x=>x.id===editingGoalId);if(i>=0)goals[i]=g;editingGoalId=null;}else goals.push(g);sd('goals',goals);closeGoalModal();renderGoals();}
+function deleteGoalFromModal(){if(!editingGoalId)return;const g=goals.find(x=>x.id===editingGoalId);if(!g||!confirm('Delete "'+g.title+'"? Events will stay, but this goal link will be removed.'))return;goals=goals.filter(x=>x.id!==editingGoalId);events=events.map(ev=>{const gids=eventGoalIds(ev).filter(id=>id!==editingGoalId);return{...ev,gids,gid:gids[0]||null,gtype:(goals.find(gg=>gg.id===gids[0])?.type)||''};});sd('goals',goals);sd('ev',events);editingGoalId=null;closeGoalModal();renderGoals();render();}
 
 /* ── DETAIL ── */
 function showDetail(e,id){
