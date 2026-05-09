@@ -172,6 +172,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .panel-title{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text);margin-bottom:1rem}
 .panel-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:1rem}
 .panel-head .panel-title{margin-bottom:0}
+.activity-ticker-wrap{display:flex;align-items:center;gap:6px}
+.activity-ticker-label{font-size:10px;font-weight:700;color:var(--text-light);white-space:nowrap}
 .activity-ticker{font-size:11px;font-weight:800;border-radius:999px;padding:4px 8px;white-space:nowrap}
 .activity-ticker.up{background:var(--accent-light);color:var(--accent)}
 .activity-ticker.down{background:var(--danger-light);color:var(--danger)}
@@ -189,6 +191,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .heatmap-cell.l3{background:#4CAF50}
 .heatmap-cell.l4{background:#2C5F2E}
 .habit-heatmap{display:flex;gap:4px;align-items:flex-start;justify-content:center}
+.habit-heatmap-calendar{display:flex;flex-direction:column;gap:4px;align-items:center}
+.habit-heatmap-weekdays{display:grid;grid-template-columns:repeat(7,9px);gap:3px;font-size:8px;font-weight:700;color:var(--text-light);text-align:center}
 .habit-heatmap-grid{display:flex;flex-direction:column;gap:3px}
 .habit-heatmap-row{display:flex;gap:3px}
 .habit-heatmap .heatmap-cell{width:9px;height:9px;border-radius:2px}
@@ -1012,10 +1016,10 @@ function renderHabits(){
   el.innerHTML=
     '<div class="page-header" style="margin-bottom:0"><div class="page-title">My <span>Habits</span></div></div>'+
     '<div class="habits-top-grid">'+
-    '<div class="panel"><div class="panel-head"><div class="panel-title">Activity &mdash; last month</div><div class="activity-ticker '+tickerClass+'" title="Compared with the previous 30 days">'+tickerText+'</div></div>'+
-    '<div class="habit-heatmap"><div class="habit-heatmap-labels"><div class="habit-heatmap-label">&nbsp;</div><div class="habit-heatmap-label">Mon</div><div class="habit-heatmap-label">&nbsp;</div><div class="habit-heatmap-label">Wed</div><div class="habit-heatmap-label">&nbsp;</div><div class="habit-heatmap-label">Fri</div><div class="habit-heatmap-label">&nbsp;</div></div>'+
-    '<div class="habit-heatmap-grid">'+[0,1,2,3,4,5,6].map(dow=>'<div class="habit-heatmap-row">'+heatRows.map(week=>{const day=week[dow];const ds=fd(day);const cnt=heatData[ds]||0;const fut=day>today;return'<div class="heatmap-cell '+(fut?'':hc(cnt))+'" style="'+(fut?'opacity:.2':'')+';" title="'+ds+': '+cnt+' event'+(cnt!==1?'s':'')+'"></div>';}).join('')+'</div>').join('')+
-    '</div></div>'+
+    '<div class="panel"><div class="panel-head"><div class="panel-title">Activity &mdash; last month</div><div class="activity-ticker-wrap"><span class="activity-ticker-label">vs previous 30 days</span><div class="activity-ticker '+tickerClass+'">'+tickerText+'</div></div></div>'+
+    '<div class="habit-heatmap"><div class="habit-heatmap-calendar"><div class="habit-heatmap-weekdays">'+['S','M','T','W','T','F','S'].map(d=>'<span>'+d+'</span>').join('')+'</div>'+
+    '<div class="habit-heatmap-grid">'+heatRows.map(week=>'<div class="habit-heatmap-row">'+week.map(day=>{const ds=fd(day);const cnt=heatData[ds]||0;const fut=day>today;return'<div class="heatmap-cell '+(fut?'':hc(cnt))+'" style="'+(fut?'opacity:.2':'')+';" title="'+ds+': '+cnt+' event'+(cnt!==1?'s':'')+'"></div>';}).join('')+'</div>').join('')+
+    '</div></div></div>'+
     '<div class="habit-heatmap-legend"><span>Less</span>'+['','l1','l2','l3','l4'].map(c=>'<div class="heatmap-cell '+c+'" style="flex-shrink:0"></div>').join('')+'<span>More</span></div></div>'+
     '<div class="panel"><div class="panel-title">Time by category</div><div class="pie-wrap"><div class="pie-chart" style="background:conic-gradient('+pieStops+')"><div class="pie-center">'+Math.round(totalCatTime/60)+'h<br>total</div></div><div class="pie-legend">'+pieLegend+'</div></div></div>'+
     '<div class="streak-card"><div class="streak-label">Current Streak</div><div><div class="streak-fire">&#128293;</div><div class="streak-number">'+currentStreak+'</div><div class="streak-days">day'+(currentStreak!==1?'s':'')+'</div></div><div class="streak-best">Best streak: '+bestStreak+' day'+(bestStreak!==1?'s':'')+'</div></div>'+
