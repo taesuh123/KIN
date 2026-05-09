@@ -580,7 +580,8 @@ select.form-input{appearance:none}
       <div class="form-group"><label class="form-label">End Time</label><input class="form-input" type="time" step="60" id="ev-end"/></div>
       <div class="form-group"><label class="form-label">Calculated Duration</label><input class="form-input" id="ev-duration-label" value="1 hour" readonly/></div>
     </div>
-    <div class="form-group"><label class="form-label">Link to Goals <span style="font-weight:400;opacity:.6">(optional, choose across all goal types)</span></label>
+    <div class="form-group"><label class="form-label">Goal Area</label><div class="gtype-pills" id="ev-gtype-pills"></div></div>
+    <div class="form-group"><label class="form-label">Link to Goals <span style="font-weight:400;opacity:.6">(optional, choose multiple across areas)</span></label>
       <div class="goal-link-box">
         <div class="goal-check-list" id="ev-goal-checks"></div>
         <div id="ev-gpreview"></div>
@@ -772,6 +773,7 @@ const today=new Date();today.setHours(0,0,0,0);
 let viewDate=new Date(today),miniDate=new Date(today),currentView='month',currentPage='calendar';
 let activeEvId=null,editingId=null,editingGoalId=null,editingGoalTypeId=null,selCat='work',selGType='personal',selEventGType='personal';
 let evSelectedSkills=[];
+let evSelectedGoalIds=[];
 let skillFilter='';
 
 function ld(k,d){try{const s=localStorage.getItem('gt_'+k);return s?JSON.parse(s):d;}catch(e){return d;}}
@@ -951,9 +953,11 @@ function toggleSkill(s){
   renderSkillTags();
   renderSelectedSkills();
 }
-function selectedGoalIds(){return Array.from(document.querySelectorAll('.goal-check-input:checked')).map(el=>parseInt(el.value)).filter(Boolean);}
-function renderEventGTypePills(){}
-function renderGoalChecks(selected=[]){const wrap=document.getElementById('ev-goal-checks');const active=goals.filter(g=>!g.done);if(!active.length){wrap.innerHTML='<div class="sidebar-empty">No active goals yet</div>';document.getElementById('ev-gpreview').innerHTML='';return;}wrap.innerHTML=goalTypes.map(t=>{const list=active.filter(g=>(g.type||'personal')===t.id);if(!list.length)return'';return'<div class="goal-check-group"><div class="sidebar-section-label" style="margin:4px 0;color:'+t.color+'">'+esc(t.label)+'</div>'+list.map(g=>'<label class="goal-check-row"><input class="goal-check-input" type="checkbox" value="'+g.id+'" '+(selected.includes(g.id)?'checked':'')+' onchange="updateGoalPreview();autoSelectSkills(true)"><span><strong>'+esc(g.title)+'</strong><br><span style="color:var(--text-muted)">'+esc(t.label)+'</span></span></label>').join('')+'</div>';}).join('');updateGoalPreview();}
+function selectedGoalIds(){return [...new Set(evSelectedGoalIds.map(Number).filter(Boolean))];}
+function syncGoalChecks(){evSelectedGoalIds=Array.from(document.querySelectorAll('.goal-check-input:checked')).map(el=>parseInt(el.value)).filter(Boolean).concat(evSelectedGoalIds.filter(id=>!document.querySelector('.goal-check-input[value="'+id+'"]')));evSelectedGoalIds=[...new Set(evSelectedGoalIds)];}
+function toggleEventGoal(id,checked){id=parseInt(id);if(checked&&!evSelectedGoalIds.includes(id))evSelectedGoalIds.push(id);if(!checked)evSelectedGoalIds=evSelectedGoalIds.filter(x=>x!==id);updateGoalPreview();autoSelectSkills(true);}
+function renderEventGTypePills(){normalizeGoalTypes();const c=document.getElementById('ev-gtype-pills');if(!c)return;c.innerHTML='';goalTypes.forEach(t=>{const p=document.createElement('div');p.className='gtype-pill'+(selEventGType===t.id?' selected':'');p.style.background=t.bg;p.style.color=t.color;p.textContent=t.label;p.onclick=()=>{selEventGType=t.id;renderEventGTypePills();renderGoalChecks();};c.appendChild(p);});}
+function renderGoalChecks(selected=null){if(Array.isArray(selected))evSelectedGoalIds=[...new Set(selected.map(Number).filter(Boolean))];const wrap=document.getElementById('ev-goal-checks');const t=goalType(selEventGType);const active=goals.filter(g=>!g.done&&(g.type||'personal')===t.id);if(!active.length){wrap.innerHTML='<div class="sidebar-empty">No active '+esc(t.label.toLowerCase())+' goals yet</div>';updateGoalPreview();return;}wrap.innerHTML=active.map(g=>'<label class="goal-check-row"><input class="goal-check-input" type="checkbox" value="'+g.id+'" '+(evSelectedGoalIds.includes(g.id)?'checked':'')+' onchange="toggleEventGoal(this.value,this.checked)"><span><strong>'+esc(g.title)+'</strong><br><span style="color:var(--text-muted)">'+esc(t.label)+'</span></span></label>').join('');updateGoalPreview();}
 function updateGoalPreview(){const pv=document.getElementById('ev-gpreview');const picked=selectedGoalIds().map(id=>goals.find(g=>g.id===id)).filter(Boolean);pv.innerHTML=picked.map(g=>{const t=goalType(g.type);return'<div class="linked-badge" style="'+goalTypeStyle(t)+'">&#10003; '+esc(g.title)+'</div>';}).join('');}
 function skillSuggestionPool(text){
   const t=text.toLowerCase(),hits=[];
