@@ -99,6 +99,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .week-day-name{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--text-light)}
 .week-day-num{font-size:22px;font-weight:300;color:var(--text-muted);width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;margin:4px auto 0}
 .week-day-num.today{background:var(--accent);color:#fff;font-weight:500}
+.week-allday{display:grid;grid-template-columns:56px repeat(7,1fr);border-bottom:.5px solid var(--border-strong);background:var(--surface);position:sticky;top:0;z-index:5;flex-shrink:0}
+.week-allday-label{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-light);padding:10px 8px;text-align:right}
+.week-allday-col{min-height:40px;border-left:.5px solid var(--border);padding:5px;display:flex;flex-direction:column;gap:4px}
+.week-allday-event{border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .week-body{flex:1;overflow-y:auto;display:grid;grid-template-columns:56px repeat(7,1fr)}
 .week-hour{height:52px;display:flex;align-items:flex-start;justify-content:flex-end;padding-right:10px}
 .week-hour-label{font-size:10px;color:var(--text-light);margin-top:-6px;white-space:nowrap}
@@ -111,6 +115,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .week-event.cat-personal{background:var(--warn-light);color:var(--warn)}
 .week-event.cat-fitness{background:var(--accent-light);color:var(--accent)}
 .week-event.cat-finance{background:#FAEEDA;color:#993C1D}
+.week-allday-event.cat-school,.week-allday-event.cat-health{background:var(--info-light);color:var(--info)}
+.week-allday-event.cat-work{background:var(--purple-light);color:var(--purple)}
+.week-allday-event.cat-personal{background:var(--warn-light);color:var(--warn)}
+.week-allday-event.cat-fitness{background:var(--accent-light);color:var(--accent)}
+.week-allday-event.cat-finance{background:#FAEEDA;color:#993C1D}
 
 /* GOALS */
 .goals-page{flex:1;overflow-y:auto;padding:2rem 2.5rem;display:flex;flex-direction:column;gap:1.5rem}
@@ -229,6 +238,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .agent-page-wrap{max-width:1180px;width:100%;display:flex;flex-direction:column;gap:1rem}
 .agent-page-wrap .agent-chat{min-height:620px}
 .agent-page-wrap .agent-messages{max-height:none;flex:1}
+.goal-progress-controls{display:flex;align-items:center;gap:.75rem;background:var(--surface);border:.5px solid var(--border-strong);border-radius:var(--r);padding:1rem}
+.goal-progress-controls label{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-light)}
+.goal-progress-select{flex:1;min-width:0;padding:9px 11px;border:.5px solid var(--border-strong);border-radius:var(--r-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text)}
 .action-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem}
 .action-col{background:var(--bg);border:.5px solid var(--border);border-radius:var(--r-sm);padding:.8rem}
 .action-col-title{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin-bottom:.55rem}
@@ -257,6 +269,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .agent-input{flex:1;min-width:0;padding:9px 11px;border:.5px solid var(--border-strong);border-radius:var(--r-sm);font-size:13px;font-family:'DM Sans',sans-serif;background:var(--surface);color:var(--text);outline:none}
 .agent-input:focus{border-color:var(--accent)}
 .agent-send{border:none;background:var(--accent);color:#fff;border-radius:var(--r-sm);font-size:13px;font-weight:700;font-family:'DM Sans',sans-serif;padding:0 14px;cursor:pointer}
+.toggle-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-muted);font-weight:600}
+.toggle-row input{width:16px;height:16px}
+.repeat-box{background:var(--bg);border:.5px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.repeat-days{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.repeat-day{display:flex;align-items:center;justify-content:center;gap:3px;font-size:11.5px;font-weight:700;color:var(--text-muted);background:var(--surface);border:.5px solid var(--border);border-radius:999px;padding:6px 4px;cursor:pointer}
+.repeat-day input{display:none}
+.repeat-day:has(input:checked){background:var(--accent-light);color:var(--accent);border-color:var(--accent-mid)}
 .no-data{padding:3rem;text-align:center;color:var(--text-light);font-size:14px;line-height:1.8}
 
 /* SKILLS */
@@ -465,7 +484,7 @@ select.form-input{appearance:none}
     <div class="form-group"><label class="form-label">Title</label><input class="form-input" id="ev-title" placeholder="What's happening?"/></div>
     <div class="form-group"><label class="form-label">Category</label><div class="cat-pills" id="cat-pills-form"></div></div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="ev-date"/></div>
+      <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="ev-date"/><label class="toggle-row" style="margin-top:8px"><input type="checkbox" id="ev-allday" onchange="toggleAllDay()">All day</label></div>
       <div class="form-group"><label class="form-label">Start Time</label><input class="form-input" type="time" step="60" id="ev-time"/></div>
     </div>
     <div class="form-row">
@@ -488,6 +507,7 @@ select.form-input{appearance:none}
       </div>
     </div>
     <div class="form-group"><label class="form-label">Notes <span style="font-weight:400;opacity:.6">(e.g. "weight: 225 lbs" or "ran 3.1 miles")</span></label><input class="form-input" id="ev-notes" placeholder="Optional notes..."/></div>
+    <div class="form-group"><label class="form-label">Recurring</label><div class="repeat-box"><label class="toggle-row"><input type="checkbox" id="ev-repeat">Repeat weekly</label><div class="repeat-days" id="repeat-days"></div></div></div>
     <div class="modal-footer"><button class="btn-cancel" onclick="closeModal()">Cancel</button><button class="btn-save" onclick="saveEvent()">Save</button></div>
   </div>
 </div>
@@ -594,6 +614,7 @@ let agentChats=ld('agent_chats',[]);
 let activeAgentChatId=ld('agent_active_chat',null);
 if(!agentChats.length){const legacy=ld('agent_msgs',[]);activeAgentChatId='chat_'+Date.now();agentChats=[{id:activeAgentChatId,title:'Current chat',created:Date.now(),updated:Date.now(),messages:legacy}];sd('agent_chats',agentChats);sd('agent_active_chat',activeAgentChatId);}
 if(!agentChats.some(c=>c.id===activeAgentChatId)){activeAgentChatId=agentChats[0].id;sd('agent_active_chat',activeAgentChatId);}
+let selectedProgressGoalId=ld('progress_goal',null);
 let nextId=Math.max(...events.map(e=>e.id),0)+1;
 let nextGId=Math.max(...goals.map(g=>g.id),0)+1;
 
@@ -613,10 +634,10 @@ function ft(t){const[h,m]=t.split(':').map(Number);return(h%12||12)+':'+(m<10?'0
 function tm(t){if(!t)return null;const[h,m]=t.split(':').map(Number);return h*60+m;}
 function mt(mins){const m=((mins%1440)+1440)%1440;return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');}
 function calcDur(start,end){const s=tm(start),e=tm(end);if(s===null||e===null)return 60;let d=e-s;if(d<=0)d+=1440;return Math.max(1,d);}
-function eventEnd(ev){return ev.end||mt(tm(ev.time||'09:00')+(ev.dur||60));}
-function timeRange(ev){if(!ev.time)return'All day';return ft(ev.time)+'–'+ft(eventEnd(ev));}
+function eventEnd(ev){if(ev.allDay||!ev.time)return'';return ev.end||mt(tm(ev.time)+(ev.dur||60));}
+function timeRange(ev){if(ev.allDay||!ev.time)return'All day';return ft(ev.time)+'–'+ft(eventEnd(ev));}
 function durLabel(mins){const h=Math.floor(mins/60),m=mins%60;return(h?h+' hour'+(h!==1?'s':''):'')+(h&&m?' ':'')+(m?m+' min':'')||'0 min';}
-function updateDurationLabel(){const el=document.getElementById('ev-duration-label');if(el)el.value=durLabel(calcDur(document.getElementById('ev-time').value,document.getElementById('ev-end').value));}
+function updateDurationLabel(){const el=document.getElementById('ev-duration-label');if(el)el.value=document.getElementById('ev-allday')?.checked?'All day':durLabel(calcDur(document.getElementById('ev-time').value,document.getElementById('ev-end').value));}
 function eventGoalIds(ev){return[...(ev.gids||[]),...(ev.gid?[ev.gid]:[])].map(Number).filter((v,i,a)=>v&&a.indexOf(v)===i);}
 function eventHasGoal(ev,id){return eventGoalIds(ev).includes(id);}
 function linkedEventsForGoal(id){return events.filter(e=>eventHasGoal(e,id));}
@@ -625,9 +646,9 @@ function render(){renderLabel();if(currentView==='month')renderMonth();else rend
 function renderLabel(){const M=['January','February','March','April','May','June','July','August','September','October','November','December'];document.getElementById('main-month-label').innerHTML=M[viewDate.getMonth()]+' <span class="cal-month-year">'+viewDate.getFullYear()+'</span>';}
 function buildDays(y,m){const first=new Date(y,m,1),last=new Date(y,m+1,0);let s=first.getDay();const days=[];for(let i=0;i<s;i++)days.push({date:ad(first,i-s),other:true});for(let dd=1;dd<=last.getDate();dd++)days.push({date:new Date(y,m,dd),other:false});while(days.length%7!==0)days.push({date:ad(new Date(y,m,last.getDate()),days.length-(s+last.getDate())+1),other:true});return days;}
 function renderMonth(){const y=viewDate.getFullYear(),m=viewDate.getMonth();const days=buildDays(y,m);const lbls=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];const c=document.getElementById('month-view');c.innerHTML='<div class="month-day-labels">'+lbls.map(l=>'<div class="month-day-lbl">'+l+'</div>').join('')+'</div><div class="month-grid" id="month-grid"></div>';const grid=document.getElementById('month-grid');days.forEach(({date,other})=>{const ds=fd(date),isT=ds===fd(today),dayEvs=events.filter(e=>e.date===ds).sort((a,b)=>(a.time||'').localeCompare(b.time||''));const cell=document.createElement('div');cell.className='month-cell'+(other?' other-month':'')+(isT?' today':'');cell.onclick=(ev)=>{if(ev.target===cell||ev.target.classList.contains('cell-num')||ev.target.classList.contains('cell-events')){dayEvs.length?openDayModal(ds):openModalOnDate(ds);}};const maxShown=dayEvs.length>4?3:4,shown=dayEvs.slice(0,maxShown),extra=dayEvs.length-shown.length;let h=shown.map(ev=>'<div class="cell-event cat-'+ev.cat+'" title="'+esc(ev.title)+' · '+timeRange(ev)+'" onclick="showDetail(event,'+ev.id+')">'+esc(ev.title)+'</div>').join('');if(extra>0)h+='<button class="more-events" title="Show all events" onclick="event.stopPropagation();openDayModal(\''+ds+'\')">+'+extra+' more</button>';cell.innerHTML='<div class="cell-num">'+date.getDate()+'</div><div class="cell-events">'+h+'</div>';grid.appendChild(cell);});}
-function renderWeek(){const dow=viewDate.getDay(),ws=ad(viewDate,-dow);const days=Array.from({length:7},(_,i)=>ad(ws,i));const dn=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];const hrs=Array.from({length:17},(_,i)=>i+6);document.getElementById('week-view').innerHTML='<div class="week-header"><div></div>'+days.map((d,i)=>'<div class="week-day-col"><div class="week-day-name">'+dn[i]+'</div><div class="week-day-num'+(fd(d)===fd(today)?' today':'')+'">'+d.getDate()+'</div></div>').join('')+'</div><div class="week-body"><div class="week-time-labels">'+hrs.map(h=>'<div class="week-hour"><span class="week-hour-label">'+(h===12?'12pm':h<12?h+'am':(h-12)+'pm')+'</span></div>').join('')+'</div>'+days.map(d=>{const ds=fd(d);const de=events.filter(e=>e.date===ds&&e.time);return'<div class="week-col"><div class="week-col-inner">'+hrs.map(()=>'<div class="hour-line"></div>').join('')+de.map(ev=>{const[hh,mm]=ev.time.split(':').map(Number);const top=((hh-6)*60+mm)*(52/60);const ht=Math.max(20,(ev.dur||calcDur(ev.time,eventEnd(ev)))*(52/60));return'<div class="week-event cat-'+ev.cat+'" style="top:'+top+'px;height:'+ht+'px;" onclick="showDetail(event,'+ev.id+')">'+ev.title+'</div>';}).join('')+'</div></div>';}).join('')+'</div>';}
+function renderWeek(){const dow=viewDate.getDay(),ws=ad(viewDate,-dow);const days=Array.from({length:7},(_,i)=>ad(ws,i));const dn=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];const hrs=Array.from({length:17},(_,i)=>i+6);document.getElementById('week-view').innerHTML='<div class="week-header"><div></div>'+days.map((d,i)=>'<div class="week-day-col"><div class="week-day-name">'+dn[i]+'</div><div class="week-day-num'+(fd(d)===fd(today)?' today':'')+'">'+d.getDate()+'</div></div>').join('')+'</div><div class="week-allday"><div class="week-allday-label">All day</div>'+days.map(d=>{const ds=fd(d),ads=events.filter(e=>e.date===ds&&(e.allDay||!e.time));return'<div class="week-allday-col">'+ads.map(ev=>'<div class="week-allday-event cat-'+ev.cat+'" onclick="showDetail(event,'+ev.id+')">'+esc(ev.title)+'</div>').join('')+'</div>';}).join('')+'</div><div class="week-body"><div class="week-time-labels">'+hrs.map(h=>'<div class="week-hour"><span class="week-hour-label">'+(h===12?'12pm':h<12?h+'am':(h-12)+'pm')+'</span></div>').join('')+'</div>'+days.map(d=>{const ds=fd(d);const de=events.filter(e=>e.date===ds&&e.time&&!e.allDay);return'<div class="week-col"><div class="week-col-inner">'+hrs.map(()=>'<div class="hour-line"></div>').join('')+de.map(ev=>{const[hh,mm]=ev.time.split(':').map(Number);const top=((hh-6)*60+mm)*(52/60);const ht=Math.max(20,(ev.dur||calcDur(ev.time,eventEnd(ev)))*(52/60));return'<div class="week-event cat-'+ev.cat+'" style="top:'+top+'px;height:'+ht+'px;" onclick="showDetail(event,'+ev.id+')">'+esc(ev.title)+'</div>';}).join('')+'</div></div>';}).join('')+'</div>';}
 function renderMini(){const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];document.getElementById('mini-month-label').textContent=M[miniDate.getMonth()]+' '+miniDate.getFullYear();const y=miniDate.getFullYear(),m=miniDate.getMonth();const days=buildDays(y,m);const grid=document.getElementById('mini-grid');grid.innerHTML=['S','M','T','W','T','F','S'].map(l=>'<div class="mini-day-label">'+l+'</div>').join('');days.forEach(({date,other})=>{const ds=fd(date),isT=ds===fd(today),hasEv=events.some(e=>e.date===ds);const div=document.createElement('div');div.className='mini-day'+(other?' other-month':'')+(isT?' today':'')+(hasEv&&!isT?' has-event':'');div.textContent=date.getDate();div.onclick=()=>{viewDate=new Date(date);miniDate=new Date(date);render();};grid.appendChild(div);});}
-function renderSidebar(){const cl=document.getElementById('cat-list');cl.innerHTML='';Object.entries(CATS).forEach(([k,v])=>{const cnt=events.filter(e=>e.cat===k).length;const d=document.createElement('div');d.className='category-item';d.innerHTML='<span class="cat-dot" style="background:'+v.color+'"></span><span>'+v.label+'</span><span class="cat-count">'+cnt+'</span>';cl.appendChild(d);});const now=new Date(),nowMins=now.getHours()*60+now.getMinutes();const up=events.filter(e=>pd(e.date)>today||(pd(e.date).getTime()===today.getTime()&&tm(eventEnd(e))>=nowMins)).sort((a,b)=>a.date.localeCompare(b.date)||tm(a.time)-tm(b.time)).slice(0,3);const ul=document.getElementById('upcoming-list');ul.innerHTML='';if(!up.length){ul.innerHTML='<div class="sidebar-empty">Nothing coming up</div>';return;}up.forEach(ev=>{const diff=Math.round((pd(ev.date)-today)/864e5);const when=diff===0?'Today':diff===1?'Tomorrow':'In '+diff+' days';const d=document.createElement('div');d.className='upcoming-item';d.style.borderLeftColor=CATS[ev.cat]?.color||'#ccc';d.innerHTML='<div class="upcoming-title">'+ev.title+'</div><div class="upcoming-meta">'+when+' &middot; '+timeRange(ev)+'</div>';d.onclick=e=>showDetail({clientX:240,clientY:300,stopPropagation:()=>{}},ev.id);ul.appendChild(d);});}
+function renderSidebar(){const cl=document.getElementById('cat-list');cl.innerHTML='';Object.entries(CATS).forEach(([k,v])=>{const cnt=events.filter(e=>e.cat===k).length;const d=document.createElement('div');d.className='category-item';d.innerHTML='<span class="cat-dot" style="background:'+v.color+'"></span><span>'+v.label+'</span><span class="cat-count">'+cnt+'</span>';cl.appendChild(d);});const now=new Date(),nowMins=now.getHours()*60+now.getMinutes();const up=events.filter(e=>pd(e.date)>today||(pd(e.date).getTime()===today.getTime()&&((e.allDay||!e.time)||tm(eventEnd(e))>=nowMins))).sort((a,b)=>a.date.localeCompare(b.date)||(tm(a.time)||0)-(tm(b.time)||0)).slice(0,3);const ul=document.getElementById('upcoming-list');ul.innerHTML='';if(!up.length){ul.innerHTML='<div class="sidebar-empty">Nothing coming up</div>';return;}up.forEach(ev=>{const diff=Math.round((pd(ev.date)-today)/864e5);const when=diff===0?'Today':diff===1?'Tomorrow':'In '+diff+' days';const d=document.createElement('div');d.className='upcoming-item';d.style.borderLeftColor=CATS[ev.cat]?.color||'#ccc';d.innerHTML='<div class="upcoming-title">'+ev.title+'</div><div class="upcoming-meta">'+when+' &middot; '+timeRange(ev)+'</div>';d.onclick=e=>showDetail({clientX:240,clientY:300,stopPropagation:()=>{}},ev.id);ul.appendChild(d);});}
 
 /* ── GOALS ── */
 function renderGoals(){const tot=goals.length,done=goals.filter(g=>g.done).length,linked=events.filter(e=>eventGoalIds(e).length).length;document.getElementById('goal-stats').innerHTML='<div class="stat-card"><div class="stat-label">Total Goals</div><div class="stat-num">'+tot+'</div><div class="stat-sub">'+done+' completed</div><div class="stat-bar"><div class="stat-bar-fill" style="width:'+(tot?Math.round(done/tot*100):0)+'%;background:var(--accent)"></div></div></div><div class="stat-card"><div class="stat-label">Active</div><div class="stat-num">'+(tot-done)+'</div><div class="stat-sub">in progress</div></div><div class="stat-card"><div class="stat-label">Sessions Logged</div><div class="stat-num">'+linked+'</div><div class="stat-sub">events tied to goals</div></div>';['personal','academic','professional'].forEach(type=>{const list=goals.filter(g=>g.type===type);document.getElementById('cnt-'+type).textContent=list.length;const el=document.getElementById('glist-'+type);if(!list.length){el.innerHTML='<div class="empty-goals">No '+type+' goals yet</div>';return;}el.innerHTML='';list.forEach(g=>{const lnk=linkedEventsForGoal(g.id);const card=document.createElement('div');card.className='goal-card'+(g.done?' done':'');card.innerHTML='<div class="goal-card-title"><span class="goal-checkbox'+(g.done?' checked':'')+'" onclick="toggleGoal(event,'+g.id+')"></span><span>'+esc(g.title)+'</span></div>'+(g.desc?'<div class="goal-card-desc">'+esc(g.desc)+'</div>':'')+(lnk.length?'<div class="goal-card-linked">&#9679; '+lnk.length+' session'+(lnk.length>1?'s':'')+' logged</div>':'');card.onclick=e=>{if(!e.target.classList.contains('goal-checkbox'))openGoalModal(type,g.id);};el.appendChild(card);});});}
@@ -789,6 +810,8 @@ function buildAIInsights(){
     '<div class="ai-section"><div class="ai-section-title">Risks & Blind Spots</div><div class="ai-list">'+risks.map(x=>'<div class="ai-item">'+x+'</div>').join('')+'</div></div></div>';
 }
 function buildNextActions(){return '<div class="ai-panel"><div class="ai-section-title">Recommended Next Actions</div><div class="action-grid">'+['personal','academic','professional'].map(type=>{const gs=goals.filter(g=>g.type===type&&!g.done);const unstarted=gs.find(g=>!linkedEventsForGoal(g.id).length);const active=gs[0];let msg=unstarted?'Schedule one small session for <strong>'+esc(unstarted.title)+'</strong>.':active?'Add a measurable note to your next <strong>'+esc(active.title)+'</strong> session.':'Add a '+GTYPES[type].label.toLowerCase()+' goal to track this area.';return'<div class="action-col"><div class="action-col-title '+type+'">'+GTYPES[type].label+'</div><div class="ai-item">'+msg+'</div></div>';}).join('')+'</div></div>';}
+function setProgressGoal(id){selectedProgressGoalId=parseInt(id);sd('progress_goal',selectedProgressGoalId);renderProgress();}
+function buildSelectedGoalProgress(){if(!goals.length)return'';if(!selectedProgressGoalId||!goals.some(g=>g.id===selectedProgressGoalId)){selectedProgressGoalId=goals[0].id;sd('progress_goal',selectedProgressGoalId);}const g=goals.find(x=>x.id===selectedProgressGoalId);return'<div class="goal-progress-controls"><label for="progress-goal-select">Goal progression</label><select class="goal-progress-select" id="progress-goal-select" onchange="setProgressGoal(this.value)">'+goals.map(goal=>'<option value="'+goal.id+'" '+(goal.id===selectedProgressGoalId?'selected':'')+'>'+esc(goal.title)+'</option>').join('')+'</select></div>'+buildPGCard(g);}
 function agentWelcome(){const active=goals.filter(g=>!g.done).length,linked=events.filter(e=>eventGoalIds(e).length).length;return active||events.length?'I am reading your '+goals.length+' goals, '+events.length+' events, and '+linked+' goal-linked sessions. Ask me what to do next, how progress is going, or which skills to focus on.':'Add a few goals and events, then I can give sharper suggestions and feedback.';}
 function activeAgentChat(){let chat=agentChats.find(c=>c.id===activeAgentChatId);if(!chat){chat=agentChats[0];activeAgentChatId=chat.id;}return chat;}
 function agentMessages(){return activeAgentChat().messages||[];}
@@ -812,8 +835,8 @@ function buildAgentChat(){const msgs=agentMessages(),shown=msgs.length?msgs:[{ro
 function agentKey(e){if(e.key==='Enter'){e.preventDefault();sendAgentMessage();}}
 function scrollAgent(){const m=document.getElementById('agent-messages');if(m)m.scrollTop=m.scrollHeight;}
 function sendAgentMessage(){const inp=document.getElementById('agent-input'),q=(inp?.value||'').trim();if(!q)return;const reply=agentReply(q),chat=activeAgentChat();chat.messages=chat.messages||[];chat.messages.push({role:'user',text:q});chat.messages.push(typeof reply==='string'?{role:'agent',text:reply}:{role:'agent',text:reply.text,html:reply.html});chat.messages=chat.messages.slice(-24);chat.updated=Date.now();const first=chat.messages.find(m=>m.role==='user');if(first)chat.title=first.text.slice(0,42);agentChats=[chat,...agentChats.filter(c=>c.id!==chat.id)];saveAgentChats();refreshAgentView();setTimeout(scrollAgent,0);}
-function renderAgentPage(){const el=document.getElementById('agent-content');el.innerHTML='<div class="agent-page-wrap"><div class="page-header" style="margin-bottom:0"><div class="page-title">Personal <span>Agent</span></div></div>'+buildAgentChat()+'</div>';setTimeout(scrollAgent,0);}
-function renderProgress(){const el=document.getElementById('progress-content');const empty='<div class="no-data">Add goals first, then log events with notes to track your progress.<br><br>Include stats in your notes like<br><em>"weight: 225 lbs"</em> or <em>"ran 3.2 miles"</em>.</div>';el.innerHTML='<div class="page-header" style="margin-bottom:0"><div class="page-title">My <span>Progress</span></div></div><div class="progress-top"><div class="progress-action-stack">'+buildNextActions()+'</div><div class="panel"><div class="panel-title">Quick Insights</div>'+(events.length?buildInsights():'<div class="empty-goals">Log events to see insights.</div>')+'</div></div>'+buildAIInsights()+(goals.length?'<div style="display:flex;flex-direction:column;gap:1rem">'+goals.map(g=>buildPGCard(g)).join('')+'</div>':empty);}
+function renderAgentPage(){const el=document.getElementById('agent-content');el.innerHTML='<div class="agent-page-wrap"><div class="page-header" style="margin-bottom:0"><div class="page-title">Personal <span>Agent</span></div></div><div class="agent-chat"><div class="agent-head"><div class="agent-title">Your Personal Agent</div><div class="agent-status">Paused</div></div><div class="ai-note">The personal agent is paused while source-backed coaching is being upgraded. Your previous chats are still saved locally and the rest of GoalTrack will keep working.</div></div></div>';}
+function renderProgress(){const el=document.getElementById('progress-content');const empty='<div class="no-data">Add goals first, then log events with notes to track your progress.<br><br>Include stats in your notes like<br><em>"weight: 225 lbs"</em> or <em>"ran 3.2 miles"</em>.</div>';el.innerHTML='<div class="page-header" style="margin-bottom:0"><div class="page-title">My <span>Progress</span></div></div><div class="progress-top"><div class="progress-action-stack">'+buildNextActions()+'</div><div class="panel"><div class="panel-title">Quick Insights</div>'+(events.length?buildInsights():'<div class="empty-goals">Log events to see insights.</div>')+'</div></div>'+buildAIInsights()+(goals.length?'<div style="display:flex;flex-direction:column;gap:1rem">'+buildSelectedGoalProgress()+'</div>':empty);}
 
 /* ── EVENT MODAL ── */
 function openModal(date){
@@ -823,8 +846,12 @@ function openModal(date){
   document.getElementById('ev-date').value=date||fd(today);
   document.getElementById('ev-time').value='09:00';
   document.getElementById('ev-end').value='10:00';
+  document.getElementById('ev-allday').checked=false;
+  toggleAllDay();
   updateDurationLabel();
   document.getElementById('ev-notes').value='';
+  document.getElementById('ev-repeat').checked=false;
+  renderRepeatDays([pd(date||fd(today)).getDay()]);
   selEventGType='personal';
   renderEventGTypePills();
   renderGoalChecks([]);
@@ -841,16 +868,24 @@ function openModalOnDate(ds){openModal(ds);}
 function closeModal(){document.getElementById('modal-bg').classList.remove('open');}
 function renderCatPills(){const c=document.getElementById('cat-pills-form');c.innerHTML='';Object.entries(CATS).forEach(([k])=>{const p=document.createElement('div');p.className='cat-pill cat-'+k+(selCat===k?' selected':'');p.textContent=CATS[k].label;p.onclick=()=>{selCat=k;renderCatPills();};c.appendChild(p);});}
 function updateGoalDrop(){renderGoalChecks(selectedGoalIds());}
+function renderRepeatDays(selected=[]){const labels=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];document.getElementById('repeat-days').innerHTML=labels.map((l,i)=>'<label class="repeat-day"><input type="checkbox" class="repeat-day-input" value="'+i+'" '+(selected.includes(i)?'checked':'')+'>'+l+'</label>').join('');}
+function selectedRepeatDays(){return Array.from(document.querySelectorAll('.repeat-day-input:checked')).map(x=>parseInt(x.value));}
+function toggleAllDay(){const all=document.getElementById('ev-allday').checked;['ev-time','ev-end'].forEach(id=>{const el=document.getElementById(id);el.disabled=all;el.style.opacity=all ? .45 : 1;});updateDurationLabel();}
+function repeatDates(start,days,weeks=12){const base=pd(start),out=[];for(let i=0;i<weeks*7;i++){const d=ad(base,i);if(d>=base&&days.includes(d.getDay()))out.push(fd(d));}return[...new Set(out)];}
 function saveEvent(){
   const title=document.getElementById('ev-title').value.trim();
   if(!title){document.getElementById('ev-title').focus();return;}
-  const start=document.getElementById('ev-time').value;
-  const end=document.getElementById('ev-end').value;
-  const dur=calcDur(start,end);
+  const allDay=document.getElementById('ev-allday').checked;
+  const start=allDay?'':document.getElementById('ev-time').value;
+  const end=allDay?'':document.getElementById('ev-end').value;
+  const dur=allDay?0:calcDur(start,end);
   const gids=selectedGoalIds();
   const firstGoal=goals.find(g=>g.id===gids[0]);
-  const ev={id:editingId||nextId++,title,cat:selCat,date:document.getElementById('ev-date').value,time:start,end,dur,notes:document.getElementById('ev-notes').value,gtype:firstGoal?.type||selEventGType,gid:gids[0]||null,gids,skills:[...evSelectedSkills]};
+  const repeat=document.getElementById('ev-repeat').checked;
+  const rdays=selectedRepeatDays();
+  const ev={id:editingId||nextId++,title,cat:selCat,date:document.getElementById('ev-date').value,time:start,end,dur,allDay,notes:document.getElementById('ev-notes').value,gtype:firstGoal?.type||selEventGType,gid:gids[0]||null,gids,skills:[...evSelectedSkills]};
   if(editingId){const i=events.findIndex(e=>e.id===editingId);if(i>=0)events[i]=ev;editingId=null;}else events.push(ev);
+  if(repeat&&rdays.length){const root='rep_'+Date.now();ev.repeatRoot=root;repeatDates(ev.date,rdays).filter(ds=>ds!==ev.date).forEach(ds=>events.push({...ev,id:nextId++,date:ds,repeatRoot:root}));}
   sd('ev',events);closeModal();render();
 }
 
@@ -870,7 +905,7 @@ function showDetail(e,id){
   document.getElementById('detail-title').textContent=ev.title;
   const diff=Math.round((pd(ev.date)-today)/864e5);
   const when=diff===0?'Today':diff===1?'Tomorrow':diff===-1?'Yesterday':pd(ev.date).toLocaleDateString('en-US',{month:'short',day:'numeric'});
-  document.getElementById('detail-time').textContent=when+' \u00b7 '+timeRange(ev)+' \u00b7 '+durLabel(ev.dur||calcDur(ev.time,eventEnd(ev)));
+  document.getElementById('detail-time').textContent=when+' \u00b7 '+timeRange(ev)+(ev.allDay||!ev.time?'':' \u00b7 '+durLabel(ev.dur||calcDur(ev.time,eventEnd(ev))));
   const gw=document.getElementById('detail-goal-wrap');
   const linkedGoals=eventGoalTags(ev);gw.innerHTML=linkedGoals.map(g=>{const t=GTYPES[g.type];return'<div class="detail-goal-tag" style="background:'+t.bg+';color:'+t.color+'">&#9654; '+esc(g.title)+'</div>';}).join('');
   const sw=document.getElementById('detail-skills');
@@ -891,10 +926,14 @@ function editEvent(){
   document.getElementById('modal-title-text').textContent='Edit Event';
   document.getElementById('ev-title').value=ev.title;
   document.getElementById('ev-date').value=ev.date;
-  document.getElementById('ev-time').value=ev.time;
-  document.getElementById('ev-end').value=eventEnd(ev);
+  document.getElementById('ev-time').value=ev.time||'09:00';
+  document.getElementById('ev-end').value=eventEnd(ev)||'10:00';
+  document.getElementById('ev-allday').checked=!!ev.allDay||!ev.time;
+  toggleAllDay();
   updateDurationLabel();
   document.getElementById('ev-notes').value=ev.notes;
+  document.getElementById('ev-repeat').checked=false;
+  renderRepeatDays([pd(ev.date).getDay()]);
   selCat=ev.cat;renderCatPills();
   const linkedGoals=eventGoalTags(ev);
   selEventGType=linkedGoals[0]?.type||ev.gtype||'personal';
