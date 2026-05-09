@@ -598,6 +598,7 @@ select.form-input{appearance:none}
         <div id="ev-gpreview"></div>
       </div>
     </div>
+    <div class="form-group"><label class="form-label">Notes <span style="font-weight:400;opacity:.6">(e.g. "weight: 225 lbs" or "ran 3.1 miles")</span></label><input class="form-input" id="ev-notes" placeholder="Optional notes..."/></div>
     <div class="form-group">
       <label class="form-label">Skills practiced <span style="font-weight:400;opacity:.6">(optional)</span></label>
       <div class="skills-section">
@@ -606,7 +607,6 @@ select.form-input{appearance:none}
         <div class="skills-selected-wrap" id="skills-selected"></div>
       </div>
     </div>
-    <div class="form-group"><label class="form-label">Notes <span style="font-weight:400;opacity:.6">(e.g. "weight: 225 lbs" or "ran 3.1 miles")</span></label><input class="form-input" id="ev-notes" placeholder="Optional notes..."/></div>
     <div class="form-group"><label class="form-label">Recurring</label><div class="repeat-box"><label class="toggle-row"><input type="checkbox" id="ev-repeat">Repeat weekly</label><div class="repeat-days" id="repeat-days"></div><label class="repeat-end-row"><span>End date <span style="font-weight:500;opacity:.65">(optional)</span></span><input type="date" id="ev-repeat-end"></label></div></div>
     <div class="modal-footer"><button class="btn-cancel" onclick="closeModal()">Cancel</button><button class="btn-save" onclick="saveEvent()">Save</button></div>
   </div>
@@ -974,18 +974,20 @@ function skillSuggestionPool(text){
   const t=text.toLowerCase(),hits=[];
   const add=(words,skills)=>{if(words.some(w=>t.includes(w)))skills.forEach(s=>hits.push(s));};
   add(['run','cardio','5k','marathon','mile','fitness','gym','workout'],['Cardio','Discipline','Goal Setting','Time Management']);
-  add(['weight','strength','lift','gym','nutrition'],['Strength Training','Nutrition','Discipline','Habit Building']);
-  add(['read','study','exam','class','academic','research','book'],['Research','Reading','Critical Thinking','Time Management']);
+  add(['weight','strength','lift','gym','nutrition','bench','squat','deadlift','push','pull','sets','reps','protein'],['Strength Training','Nutrition','Discipline','Habit Building']);
+  add(['read','study','exam','class','academic','research','book','paper','essay','reflection','draft','revise','history'],['Research','Reading','Critical Thinking','Writing']);
   add(['code','app','web','javascript','python','react','software'],['Software Development','Problem Solving','JavaScript','Web Development']);
   add(['presentation','speak','pitch'],['Public Speaking','Communication','Presentation Skills','Confidence']);
-  add(['sales','client','customer'],['Sales','Communication','Relationship Building','Negotiation']);
+  add(['meeting','meet','call','1:1','interview','discuss','final','sales','client','customer'],['Communication','Active Listening','Collaboration','Relationship Building']);
   add(['marketing','brand','social'],['Marketing','Content Marketing','Creativity','Analytics']);
-  add(['finance','budget','money'],['Finance','Budgeting','Financial Analysis','Excel']);
+  add(['finance','budget','money','bill','tax','saving','spend'],['Finance','Budgeting','Financial Analysis','Excel']);
   add(['design','figma','photo','video'],['Design Thinking','Creativity','Figma','Visual Communication']);
+  add(['doctor','dentist','appointment','therapy','health'],['Scheduling','Self-Motivation','Active Listening','Healthcare Management']);
+  add(['email','follow up','update','plan','organize','schedule','calendar'],['Scheduling','Time Management','Communication','Documentation']);
   return hits;
 }
 function autoSelectSkills(force=false){if(!force&&evSelectedSkills.length)return;const title=document.getElementById('ev-title').value||'';const goalText=selectedGoalIds().map(id=>{const g=goals.find(x=>x.id===id);return g?(g.title+' '+(g.desc||'')):'';
-  }).join(' ');let suggested=[...new Set(skillSuggestionPool(title+' '+goalText))].filter(s=>allSkills.includes(s));const fallback=['Communication','Time Management','Problem Solving','Discipline'];fallback.forEach(s=>{if(suggested.length<4&&allSkills.includes(s)&&!suggested.includes(s))suggested.push(s);});evSelectedSkills=suggested.slice(0,4);renderSkillTags();renderSelectedSkills();}
+  }).join(' ');const notes=document.getElementById('ev-notes')?.value||'';let suggested=[...new Set(skillSuggestionPool(title+' '+goalText+' '+notes))].filter(s=>allSkills.includes(s));const fallback=['Communication','Time Management','Problem Solving','Discipline'];fallback.forEach(s=>{if(suggested.length<4&&allSkills.includes(s)&&!suggested.includes(s))suggested.push(s);});evSelectedSkills=suggested.slice(0,4);renderSkillTags();renderSelectedSkills();}
 
 /* ── HABITS ── */
 function renderHabits(){
@@ -1249,6 +1251,7 @@ function closeDayModal(){document.getElementById('day-modal-bg').classList.remov
 document.getElementById('ev-time').addEventListener('input',updateDurationLabel);
 document.getElementById('ev-end').addEventListener('input',updateDurationLabel);
 document.getElementById('ev-title').addEventListener('blur',()=>autoSelectSkills());
+document.getElementById('ev-notes').addEventListener('input',()=>autoSelectSkills(true));
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeDetail();closeGoalModal();closeGoalTypeModal();closeDayModal();}if(e.key==='Enter'&&document.getElementById('modal-bg').classList.contains('open')&&e.target.tagName!=='SELECT'&&e.target.id!=='skills-search')saveEvent();if(e.key==='Enter'&&document.getElementById('goal-modal-bg').classList.contains('open')&&e.target.tagName!=='SELECT')saveGoal();if(e.key==='Enter'&&document.getElementById('goal-type-modal-bg').classList.contains('open'))saveGoalType();});
 document.addEventListener('click',e=>{const det=document.getElementById('event-detail');if(det.classList.contains('open')&&!det.contains(e.target))closeDetail();});
 
