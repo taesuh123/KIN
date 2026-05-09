@@ -33,6 +33,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .nav-actions{display:flex;gap:8px;align-items:center}
 .btn-primary{display:flex;align-items:center;gap:8px;padding:clamp(12px,1.3dvh,17px) clamp(18px,1.55vw,28px);background:var(--accent);color:#fff;border:none;border-radius:11px;font-size:clamp(19px,1.35vw,26px);font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:opacity .15s;line-height:1}
 .btn-primary:hover{opacity:.88}
+.login-btn{border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:11px;padding:clamp(10px,1.1dvh,14px) clamp(13px,1vw,18px);font:700 clamp(13px,.95vw,16px)/1 'DM Sans',sans-serif;cursor:pointer;white-space:nowrap}
+.login-btn.signed-in{background:var(--accent-light);border-color:transparent;color:var(--accent)}
+.login-status{font-size:11px;color:var(--text-light);font-weight:700;max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .page{display:none;flex:1;overflow:hidden}
 .page.active{display:flex}
 
@@ -349,6 +352,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .day-event-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:var(--bg);border:.5px solid var(--border);border-left:4px solid var(--accent);border-radius:var(--r-sm);cursor:pointer}
 .day-event-title{font-size:13.5px;font-weight:600}
 .day-event-meta{font-size:12px;color:var(--text-muted);white-space:nowrap}
+.login-panel{display:flex;flex-direction:column;gap:14px}
+.login-copy{font-size:14px;line-height:1.55;color:var(--text-muted)}
+.google-btn{border:none;background:var(--accent);color:#fff;border-radius:var(--r-sm);padding:13px 16px;font:700 15px/1 'DM Sans',sans-serif;cursor:pointer}
+.google-btn.secondary{background:var(--surface2);color:var(--text)}
+.login-note{font-size:12px;line-height:1.45;color:var(--text-light)}
 select.form-input{appearance:none}
 @media (max-width:900px){
   body{overflow:hidden;height:100vh;height:100dvh}
@@ -449,6 +457,8 @@ select.form-input{appearance:none}
     <button class="nav-tab" onclick="switchPage('agent')">Agent</button>
   </div>
   <div class="nav-actions">
+    <span class="login-status" id="login-status">Local only</span>
+    <button class="login-btn" id="login-btn" onclick="openLoginModal()">Login</button>
     <button class="btn-primary" id="nav-btn" onclick="navClick()">+ Add Event</button>
   </div>
 </nav>
@@ -609,6 +619,71 @@ select.form-input{appearance:none}
   </div>
 </div>
 
+<!-- LOGIN -->
+<div class="modal-bg" id="login-modal-bg" onclick="if(event.target===this)closeLoginModal()">
+  <div class="modal">
+    <div class="modal-title">Save Your Data</div>
+    <div class="login-panel">
+      <div class="login-copy" id="login-copy">Sign in with Google to save your GoalTrack data to Firebase and access it later.</div>
+      <button class="google-btn" id="google-login-btn" onclick="handleGoogleLogin()">Continue with Google</button>
+      <button class="google-btn secondary" id="google-logout-btn" onclick="handleGoogleLogout()" style="display:none">Sign out</button>
+      <div class="login-note">Uses Firebase Authentication with Google Sign-In and Cloud Firestore. Phone auth and Cloud Functions are not used.</div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+// Firebase Spark-safe setup: Google Sign-In + Cloud Firestore only.
+// Replace the placeholder values below with your Firebase web app config.
+const firebaseConfig = {
+  apiKey: "PASTE_FIREBASE_API_KEY",
+  authDomain: "PASTE_PROJECT_ID.firebaseapp.com",
+  projectId: "PASTE_PROJECT_ID",
+  appId: "PASTE_FIREBASE_APP_ID"
+};
+
+const hasFirebaseConfig = !firebaseConfig.apiKey.startsWith("PASTE_") && !firebaseConfig.projectId.startsWith("PASTE_");
+
+if (hasFirebaseConfig) {
+  const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js");
+  const { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js");
+  const { getFirestore, doc, getDoc, setDoc, serverTimestamp } = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js");
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const provider = new GoogleAuthProvider();
+  const appStateRef = uid => doc(db, "users", uid, "appState", "main");
+
+  window.goaltrackFirebase = {
+    enabled: true,
+    currentUser: null,
+    async signIn() {
+      await signInWithPopup(auth, provider);
+    },
+    async signOut() {
+      await signOut(auth);
+    },
+    async loadState(uid) {
+      const snap = await getDoc(appStateRef(uid));
+      return snap.exists() ? snap.data() : null;
+    },
+    async saveState(state) {
+      if (!auth.currentUser) return;
+      await setDoc(appStateRef(auth.currentUser.uid), { ...state, updatedAt: serverTimestamp() }, { merge: true });
+    }
+  };
+
+  onAuthStateChanged(auth, user => {
+    window.goaltrackFirebase.currentUser = user;
+    window.onGoalTrackFirebaseAuth?.(user);
+  });
+} else {
+  window.goaltrackFirebase = { enabled: false, currentUser: null };
+  window.onGoalTrackFirebaseUnavailable?.();
+}
+</script>
+
 <script>
 const CATS={work:{label:'Work',color:'#534AB7',bg:'#EEEDFE'},school:{label:'School',color:'#185FA5',bg:'#E6F1FB'},fitness:{label:'Fitness',color:'#2C5F2E',bg:'#EAF3DE'},personal:{label:'Personal',color:'#BA7517',bg:'#FAEEDA'},finance:{label:'Finance',color:'#993C1D',bg:'#FAECE7'}};
 const GTYPES={personal:{label:'Personal',color:'#BA7517',bg:'#FAEEDA'},academic:{label:'Academic',color:'#185FA5',bg:'#E6F1FB'},professional:{label:'Professional',color:'#534AB7',bg:'#EEEDFE'}};
@@ -679,6 +754,43 @@ if(!agentChats.some(c=>c.id===activeAgentChatId)){activeAgentChatId=agentChats[0
 let selectedProgressGoalId=ld('progress_goal',null);
 let nextId=Math.max(...events.map(e=>e.id),0)+1;
 let nextGId=Math.max(...goals.map(g=>g.id),0)+1;
+let firebaseUser=null;
+let cloudReady=false;
+
+function currentAppState(){return{goals,events};}
+function saveLocalState(){sd('goals',goals);sd('ev',events);}
+async function saveCloudState(){if(firebaseUser&&window.goaltrackFirebase?.enabled){try{await window.goaltrackFirebase.saveState(currentAppState());}catch(err){console.warn('Firebase save failed',err);}}}
+function persistState(){saveLocalState();saveCloudState();}
+function updateLoginUI(){
+  const api=window.goaltrackFirebase,btn=document.getElementById('login-btn'),status=document.getElementById('login-status'),copy=document.getElementById('login-copy'),login=document.getElementById('google-login-btn'),logout=document.getElementById('google-logout-btn');
+  if(!btn||!status)return;
+  if(!api?.enabled){status.textContent='Local only';btn.textContent='Login';btn.disabled=false;if(copy)copy.textContent='Add your Firebase web app config in index.html to enable Google Sign-In and cloud saves.';if(login){login.textContent='Firebase config needed';login.disabled=true;}if(logout)logout.style.display='none';return;}
+  if(firebaseUser){status.textContent='Cloud saved';btn.textContent='Account';btn.classList.add('signed-in');if(copy)copy.textContent='Signed in as '+(firebaseUser.email||firebaseUser.displayName||'Google user')+'. Your goals and events are saved to Firebase.';if(login)login.style.display='none';if(logout)logout.style.display='';}
+  else{status.textContent='Local only';btn.textContent='Login';btn.classList.remove('signed-in');if(copy)copy.textContent='Sign in with Google to save your GoalTrack data to Firebase and access it later.';if(login){login.style.display='';login.disabled=false;login.textContent='Continue with Google';}if(logout)logout.style.display='none';}
+}
+function openLoginModal(){updateLoginUI();document.getElementById('login-modal-bg').classList.add('open');}
+function closeLoginModal(){document.getElementById('login-modal-bg').classList.remove('open');}
+async function handleGoogleLogin(){try{await window.goaltrackFirebase?.signIn?.();}catch(err){alert('Google sign-in failed: '+(err.message||err));}}
+async function handleGoogleLogout(){try{await window.goaltrackFirebase?.signOut?.();}catch(err){alert('Sign out failed: '+(err.message||err));}}
+async function onGoalTrackFirebaseAuth(user){
+  firebaseUser=user||null;cloudReady=!!user;updateLoginUI();
+  if(!user)return;
+  try{
+    const cloud=await window.goaltrackFirebase.loadState(user.uid);
+    if(cloud&&(Array.isArray(cloud.goals)||Array.isArray(cloud.events))){
+      goals=Array.isArray(cloud.goals)?cloud.goals:goals;
+      events=Array.isArray(cloud.events)?cloud.events:events;
+      saveLocalState();
+    }else{
+      await saveCloudState();
+    }
+    nextGId=Math.max(...goals.map(g=>Number(g.id)||0),0)+1;
+    nextId=Math.max(...events.map(e=>Number(e.id)||0),0)+1;
+    renderGoals();render();
+  }catch(err){alert('Could not load Firebase data: '+(err.message||err));}
+}
+function onGoalTrackFirebaseUnavailable(){updateLoginUI();}
+updateLoginUI();
 
 /* ── PAGE SWITCHING ── */
 function switchPage(p){currentPage=p;document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));document.querySelectorAll('.nav-tab').forEach((el,i)=>{const pgs=['calendar','goals','habits','progress','agent'];el.classList.toggle('active',pgs[i]===p);});document.getElementById('page-'+p).classList.add('active');const btn=document.getElementById('nav-btn');if(p==='calendar'){btn.textContent='+ Add Event';btn.style.display='';}else btn.style.display='none';if(p==='goals')renderGoals();else if(p==='habits')renderHabits();else if(p==='progress')renderProgress();else if(p==='agent')renderAgentPage();else render();}
@@ -714,7 +826,7 @@ function renderSidebar(){const cl=document.getElementById('cat-list');cl.innerHT
 
 /* ── GOALS ── */
 function renderGoals(){const tot=goals.length,done=goals.filter(g=>g.done).length,linked=events.filter(e=>eventGoalIds(e).length).length;document.getElementById('goal-stats').innerHTML='<div class="stat-card"><div class="stat-label">Total Goals</div><div class="stat-num">'+tot+'</div><div class="stat-sub">'+done+' completed</div><div class="stat-bar"><div class="stat-bar-fill" style="width:'+(tot?Math.round(done/tot*100):0)+'%;background:var(--accent)"></div></div></div><div class="stat-card"><div class="stat-label">Active</div><div class="stat-num">'+(tot-done)+'</div><div class="stat-sub">in progress</div></div><div class="stat-card"><div class="stat-label">Sessions Logged</div><div class="stat-num">'+linked+'</div><div class="stat-sub">events tied to goals</div></div>';['personal','academic','professional'].forEach(type=>{const list=goals.filter(g=>g.type===type);document.getElementById('cnt-'+type).textContent=list.length;const el=document.getElementById('glist-'+type);if(!list.length){el.innerHTML='<div class="empty-goals">No '+type+' goals yet</div>';return;}el.innerHTML='';list.forEach(g=>{const lnk=linkedEventsForGoal(g.id);const card=document.createElement('div');card.className='goal-card'+(g.done?' done':'');card.innerHTML='<div class="goal-card-title"><span class="goal-checkbox'+(g.done?' checked':'')+'" onclick="toggleGoal(event,'+g.id+')"></span><span>'+esc(g.title)+'</span></div>'+(g.desc?'<div class="goal-card-desc">'+esc(g.desc)+'</div>':'')+(lnk.length?'<div class="goal-card-linked">&#9679; '+lnk.length+' session'+(lnk.length>1?'s':'')+' logged</div>':'');card.onclick=e=>{if(!e.target.classList.contains('goal-checkbox'))openGoalModal(type,g.id);};el.appendChild(card);});});}
-function toggleGoal(e,id){e.stopPropagation();const g=goals.find(x=>x.id===id);if(g){g.done=!g.done;sd('goals',goals);renderGoals();}}
+function toggleGoal(e,id){e.stopPropagation();const g=goals.find(x=>x.id===id);if(g){g.done=!g.done;persistState();renderGoals();}}
 
 /* ── SKILLS UI ── */
 function filterSkills(){
@@ -950,15 +1062,15 @@ function saveEvent(){
   const ev={id:editingId||nextId++,title,cat:selCat,date:document.getElementById('ev-date').value,time:start,end,dur,allDay,notes:document.getElementById('ev-notes').value,gtype:firstGoal?.type||selEventGType,gid:gids[0]||null,gids,skills:[...evSelectedSkills],repeatEnd:repeat?repeatEnd:''};
   if(editingId){const i=events.findIndex(e=>e.id===editingId);if(i>=0)events[i]=ev;editingId=null;}else events.push(ev);
   if(repeat&&rdays.length){const root='rep_'+Date.now();ev.repeatRoot=root;repeatDates(ev.date,rdays,repeatEnd).filter(ds=>ds!==ev.date).forEach(ds=>events.push({...ev,id:nextId++,date:ds,repeatRoot:root}));}
-  sd('ev',events);closeModal();render();
+  persistState();closeModal();render();
 }
 
 /* ── GOAL MODAL ── */
 function openGoalModal(type,editId){editingGoalId=editId||null;document.getElementById('goal-modal-title').textContent=editId?'Edit Goal':'Add Goal';document.getElementById('goal-delete-btn').style.display=editId?'':'none';const g=editId?goals.find(x=>x.id===editId):null;document.getElementById('goal-title').value=g?g.title:'';document.getElementById('goal-desc').value=g?g.desc:'';selGType=g?g.type:(type||'personal');renderGTypePills();document.getElementById('goal-modal-bg').classList.add('open');setTimeout(()=>document.getElementById('goal-title').focus(),50);}
 function closeGoalModal(){document.getElementById('goal-modal-bg').classList.remove('open');}
 function renderGTypePills(){const c=document.getElementById('gtype-pills');c.innerHTML='';Object.entries(GTYPES).forEach(([k])=>{const p=document.createElement('div');p.className='gtype-pill '+k+(selGType===k?' selected':'');p.textContent=GTYPES[k].label;p.onclick=()=>{selGType=k;renderGTypePills();};c.appendChild(p);});}
-function saveGoal(){const title=document.getElementById('goal-title').value.trim();if(!title){document.getElementById('goal-title').focus();return;}const g={id:editingGoalId||nextGId++,title,type:selGType,desc:document.getElementById('goal-desc').value,done:editingGoalId?goals.find(x=>x.id===editingGoalId)?.done||false:false};if(editingGoalId){const i=goals.findIndex(x=>x.id===editingGoalId);if(i>=0)goals[i]=g;editingGoalId=null;}else goals.push(g);sd('goals',goals);closeGoalModal();renderGoals();}
-function deleteGoalFromModal(){if(!editingGoalId)return;const g=goals.find(x=>x.id===editingGoalId);if(!g||!confirm('Delete "'+g.title+'"? Events will stay, but this goal link will be removed.'))return;goals=goals.filter(x=>x.id!==editingGoalId);events=events.map(ev=>{const gids=eventGoalIds(ev).filter(id=>id!==editingGoalId);return{...ev,gids,gid:gids[0]||null,gtype:(goals.find(gg=>gg.id===gids[0])?.type)||''};});sd('goals',goals);sd('ev',events);editingGoalId=null;closeGoalModal();renderGoals();render();}
+function saveGoal(){const title=document.getElementById('goal-title').value.trim();if(!title){document.getElementById('goal-title').focus();return;}const g={id:editingGoalId||nextGId++,title,type:selGType,desc:document.getElementById('goal-desc').value,done:editingGoalId?goals.find(x=>x.id===editingGoalId)?.done||false:false};if(editingGoalId){const i=goals.findIndex(x=>x.id===editingGoalId);if(i>=0)goals[i]=g;editingGoalId=null;}else goals.push(g);persistState();closeGoalModal();renderGoals();}
+function deleteGoalFromModal(){if(!editingGoalId)return;const g=goals.find(x=>x.id===editingGoalId);if(!g||!confirm('Delete "'+g.title+'"? Events will stay, but this goal link will be removed.'))return;goals=goals.filter(x=>x.id!==editingGoalId);events=events.map(ev=>{const gids=eventGoalIds(ev).filter(id=>id!==editingGoalId);return{...ev,gids,gid:gids[0]||null,gtype:(goals.find(gg=>gg.id===gids[0])?.type)||''};});persistState();editingGoalId=null;closeGoalModal();renderGoals();render();}
 
 /* ── DETAIL ── */
 function showDetail(e,id){
@@ -983,7 +1095,7 @@ function showDetail(e,id){
   det.style.left=Math.max(8,x)+'px';det.style.top=Math.max(8,y)+'px';
 }
 function closeDetail(){document.getElementById('event-detail').classList.remove('open');}
-function deleteEvent(){events=events.filter(e=>e.id!==activeEvId);sd('ev',events);closeDetail();render();}
+function deleteEvent(){events=events.filter(e=>e.id!==activeEvId);persistState();closeDetail();render();}
 function editEvent(){
   const ev=events.find(e=>e.id===activeEvId);if(!ev)return;
   closeDetail();editingId=ev.id;
