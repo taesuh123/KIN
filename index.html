@@ -521,7 +521,7 @@ select.form-input{appearance:none}
 <div class="goals-page">
   <div class="page-header">
     <div class="page-title">My <span>Goals</span></div>
-    <div class="goal-type-toolbar"><span class="goal-type-limit" id="goal-type-limit"></span><button class="btn-cancel" onclick="addGoalType()">+ Goal Type</button><button class="btn-primary" onclick="openGoalModal()">+ Add Goal</button></div>
+    <div class="goal-type-toolbar"><span class="goal-type-limit" id="goal-type-limit"></span><button class="btn-primary" onclick="openGoalModal()">+ Add Goal</button></div>
   </div>
   <div class="goal-stats" id="goal-stats"></div>
   <div class="goals-columns" id="goals-columns"></div>
@@ -586,6 +586,15 @@ select.form-input{appearance:none}
     <div class="form-group"><label class="form-label">Category</label><div class="gtype-pills" id="gtype-pills"></div></div>
     <div class="form-group"><label class="form-label">Description / Target <span style="font-weight:400;opacity:.6">(include a number, e.g. "Reach 220 lbs")</span></label><input class="form-input" id="goal-desc" placeholder="e.g. Reach 220 lbs, Read 12 books, Run 5K..."/></div>
     <div class="modal-footer"><button class="goal-delete-btn" id="goal-delete-btn" onclick="deleteGoalFromModal()" style="display:none">Delete Goal</button><button class="btn-cancel" onclick="closeGoalModal()">Cancel</button><button class="btn-save" onclick="saveGoal()">Save</button></div>
+  </div>
+</div>
+
+<!-- GOAL TYPE MODAL -->
+<div class="modal-bg" id="goal-type-modal-bg" onclick="if(event.target===this)closeGoalTypeModal()">
+  <div class="modal">
+    <div class="modal-title" id="goal-type-modal-title">Edit Goal Type</div>
+    <div class="form-group"><label class="form-label">Goal Type Name</label><input class="form-input" id="goal-type-title" placeholder="e.g. Academic, Career, Health"/></div>
+    <div class="modal-footer"><button class="btn-cancel" onclick="closeGoalTypeModal()">Cancel</button><button class="btn-save" onclick="saveGoalType()">Save</button></div>
   </div>
 </div>
 
@@ -739,7 +748,7 @@ const DEFAULT_SKILLS=[
 
 const today=new Date();today.setHours(0,0,0,0);
 let viewDate=new Date(today),miniDate=new Date(today),currentView='month',currentPage='calendar';
-let activeEvId=null,editingId=null,editingGoalId=null,selCat='work',selGType='personal',selEventGType='personal';
+let activeEvId=null,editingId=null,editingGoalId=null,editingGoalTypeId=null,selCat='work',selGType='personal',selEventGType='personal';
 let evSelectedSkills=[];
 let skillFilter='';
 
@@ -874,7 +883,9 @@ function renderGoals(){
 }
 function toggleGoal(e,id){e.stopPropagation();const g=goals.find(x=>x.id===id);if(g){g.done=!g.done;persistState();renderGoals();}}
 function addGoalType(){if(goalTypes.length>=4){alert('You can have up to four goal types at a time.');return;}const label=prompt('New goal type name');if(!label||!label.trim())return;let id=slugGoalType(label);while(goalTypes.some(t=>t.id===id))id+='-'+Math.floor(Math.random()*99);const color=GOAL_TYPE_COLORS[goalTypes.length%GOAL_TYPE_COLORS.length];goalTypes.push({id,label:label.trim(),...color});normalizeGoalTypes();persistState();renderGoals();if(currentPage==='progress')renderProgress();}
-function renameGoalType(e,id){e.stopPropagation();const t=goalTypes.find(x=>x.id===id);if(!t||t.locked)return;const label=prompt('Rename goal type',t.label);if(!label||!label.trim())return;t.label=label.trim();normalizeGoalTypes();persistState();renderGoals();if(currentPage==='progress')renderProgress();}
+function renameGoalType(e,id){e.stopPropagation();const t=goalTypes.find(x=>x.id===id);if(!t||t.locked)return;editingGoalTypeId=id;document.getElementById('goal-type-modal-title').textContent='Edit '+t.label;document.getElementById('goal-type-title').value=t.label;document.getElementById('goal-type-modal-bg').classList.add('open');setTimeout(()=>document.getElementById('goal-type-title').focus(),50);}
+function closeGoalTypeModal(){editingGoalTypeId=null;document.getElementById('goal-type-modal-bg').classList.remove('open');}
+function saveGoalType(){const t=goalTypes.find(x=>x.id===editingGoalTypeId);if(!t||t.locked){closeGoalTypeModal();return;}const label=document.getElementById('goal-type-title').value.trim();if(!label){document.getElementById('goal-type-title').focus();return;}t.label=label;normalizeGoalTypes();persistState();closeGoalTypeModal();renderGoals();if(currentPage==='progress')renderProgress();}
 function deleteGoalType(e,id){e.stopPropagation();const t=goalTypes.find(x=>x.id===id);if(!t||t.locked)return;if(!confirm('Delete the '+t.label+' goal type? Goals in it will move to Personal.'))return;goals=goals.map(g=>g.type===id?{...g,type:'personal'}:g);events=events.map(ev=>({...ev,gtype:ev.gtype===id?'personal':ev.gtype}));goalTypes=goalTypes.filter(x=>x.id!==id);normalizeGoalTypes();persistState();renderGoals();render();}
 
 /* ── SKILLS UI ── */
@@ -1183,7 +1194,7 @@ function closeDayModal(){document.getElementById('day-modal-bg').classList.remov
 document.getElementById('ev-time').addEventListener('input',updateDurationLabel);
 document.getElementById('ev-end').addEventListener('input',updateDurationLabel);
 document.getElementById('ev-title').addEventListener('blur',()=>autoSelectSkills());
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeDetail();closeGoalModal();closeDayModal();}if(e.key==='Enter'&&document.getElementById('modal-bg').classList.contains('open')&&e.target.tagName!=='SELECT'&&e.target.id!=='skills-search')saveEvent();if(e.key==='Enter'&&document.getElementById('goal-modal-bg').classList.contains('open')&&e.target.tagName!=='SELECT')saveGoal();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeDetail();closeGoalModal();closeGoalTypeModal();closeDayModal();}if(e.key==='Enter'&&document.getElementById('modal-bg').classList.contains('open')&&e.target.tagName!=='SELECT'&&e.target.id!=='skills-search')saveEvent();if(e.key==='Enter'&&document.getElementById('goal-modal-bg').classList.contains('open')&&e.target.tagName!=='SELECT')saveGoal();if(e.key==='Enter'&&document.getElementById('goal-type-modal-bg').classList.contains('open'))saveGoalType();});
 document.addEventListener('click',e=>{const det=document.getElementById('event-detail');if(det.classList.contains('open')&&!det.contains(e.target))closeDetail();});
 
 render();
