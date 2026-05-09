@@ -554,7 +554,7 @@ select.form-input{appearance:none}
 <div class="goals-page">
   <div class="page-header">
     <div class="page-title">My <span>Goals</span></div>
-    <div class="goal-type-toolbar"><span class="goal-type-limit" id="goal-type-limit"></span><button class="btn-primary" onclick="openGoalModal()">+ Add Goal</button></div>
+    <div class="goal-type-toolbar"><button class="btn-primary" onclick="addGoalType()">+ Add Goal Type</button></div>
   </div>
   <div class="goal-stats" id="goal-stats"></div>
   <div class="goals-columns" id="goals-columns"></div>
@@ -894,7 +894,6 @@ function renderSidebar(){const cl=document.getElementById('cat-list');cl.innerHT
 function renderGoals(){
   normalizeGoalTypes();
   const tot=goals.length,done=goals.filter(g=>g.done).length,linked=events.filter(e=>eventGoalIds(e).length).length;
-  document.getElementById('goal-type-limit').textContent=goalTypes.length+'/4 goal types';
   document.getElementById('goal-stats').innerHTML='<div class="stat-card"><div class="stat-label">Total Goals</div><div class="stat-num">'+tot+'</div><div class="stat-sub">'+done+' completed</div><div class="stat-bar"><div class="stat-bar-fill" style="width:'+(tot?Math.round(done/tot*100):0)+'%;background:var(--accent)"></div></div></div><div class="stat-card"><div class="stat-label">Active</div><div class="stat-num">'+(tot-done)+'</div><div class="stat-sub">in progress</div></div><div class="stat-card"><div class="stat-label">Sessions Logged</div><div class="stat-num">'+linked+'</div><div class="stat-sub">events tied to goals</div></div>';
   const wrap=document.getElementById('goals-columns');
   wrap.innerHTML='';
@@ -917,10 +916,10 @@ function renderGoals(){
   });
 }
 function toggleGoal(e,id){e.stopPropagation();const g=goals.find(x=>x.id===id);if(g){g.done=!g.done;persistState();renderGoals();}}
-function addGoalType(){if(goalTypes.length>=4){alert('You can have up to four goal types at a time.');return;}const label=prompt('New goal type name');if(!label||!label.trim())return;let id=slugGoalType(label);while(goalTypes.some(t=>t.id===id))id+='-'+Math.floor(Math.random()*99);const color=GOAL_TYPE_COLORS[goalTypes.length%GOAL_TYPE_COLORS.length];goalTypes.push({id,label:label.trim(),...color});normalizeGoalTypes();persistState();renderGoals();if(currentPage==='progress')renderProgress();}
+function addGoalType(){if(goalTypes.length>=4){alert('You can have up to four goal types at a time.');return;}editingGoalTypeId='__new__';document.getElementById('goal-type-modal-title').textContent='Add Goal Type';document.getElementById('goal-type-title').value='';document.getElementById('goal-type-title').placeholder='e.g. Academic, Career, Health';document.getElementById('goal-type-modal-bg').classList.add('open');setTimeout(()=>document.getElementById('goal-type-title').focus(),50);}
 function renameGoalType(e,id){e.stopPropagation();const t=goalTypes.find(x=>x.id===id);if(!t||t.locked)return;editingGoalTypeId=id;document.getElementById('goal-type-modal-title').textContent='Edit '+t.label;document.getElementById('goal-type-title').value=t.label;document.getElementById('goal-type-modal-bg').classList.add('open');setTimeout(()=>document.getElementById('goal-type-title').focus(),50);}
 function closeGoalTypeModal(){editingGoalTypeId=null;document.getElementById('goal-type-modal-bg').classList.remove('open');}
-function saveGoalType(){const t=goalTypes.find(x=>x.id===editingGoalTypeId);if(!t||t.locked){closeGoalTypeModal();return;}const label=document.getElementById('goal-type-title').value.trim();if(!label){document.getElementById('goal-type-title').focus();return;}t.label=label;normalizeGoalTypes();persistState();closeGoalTypeModal();renderGoals();if(currentPage==='progress')renderProgress();}
+function saveGoalType(){const label=document.getElementById('goal-type-title').value.trim();if(!label){document.getElementById('goal-type-title').focus();return;}if(editingGoalTypeId==='__new__'){if(goalTypes.length>=4){closeGoalTypeModal();return;}let id=slugGoalType(label);while(goalTypes.some(t=>t.id===id))id+='-'+Math.floor(Math.random()*99);const color=GOAL_TYPE_COLORS[goalTypes.length%GOAL_TYPE_COLORS.length];goalTypes.push({id,label,...color});}else{const t=goalTypes.find(x=>x.id===editingGoalTypeId);if(!t||t.locked){closeGoalTypeModal();return;}t.label=label;}normalizeGoalTypes();persistState();closeGoalTypeModal();renderGoals();if(currentPage==='progress')renderProgress();}
 function deleteGoalType(e,id){e.stopPropagation();const t=goalTypes.find(x=>x.id===id);if(!t||t.locked)return;if(!confirm('Delete the '+t.label+' goal type? Goals in it will move to Personal.'))return;goals=goals.map(g=>g.type===id?{...g,type:'personal'}:g);events=events.map(ev=>({...ev,gtype:ev.gtype===id?'personal':ev.gtype}));goalTypes=goalTypes.filter(x=>x.id!==id);normalizeGoalTypes();persistState();renderGoals();render();}
 
 /* ── SKILLS UI ── */
