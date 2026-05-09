@@ -167,7 +167,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 /* HABITS/PROGRESS */
 .content-page{flex:1;overflow-y:auto;padding:2rem 2.5rem;display:flex;flex-direction:column;gap:1.75rem}
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
-.habits-top-grid{display:grid;grid-template-columns:minmax(180px,.75fr) minmax(170px,.55fr) minmax(280px,1fr) minmax(160px,.5fr);gap:1.25rem;align-items:stretch}
+.habits-top-grid{display:grid;grid-template-columns:minmax(190px,.8fr) minmax(230px,.9fr) minmax(280px,1fr) minmax(160px,.5fr);gap:1.25rem;align-items:stretch}
 .panel{background:var(--surface);border-radius:var(--r);border:.5px solid var(--border-strong);padding:1.25rem}
 .panel-title{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text);margin-bottom:1rem}
 .panel-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:1rem}
@@ -200,6 +200,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .habit-heatmap-grid{display:flex;flex-direction:column;gap:3px}
 .habit-heatmap-row{display:flex;gap:3px}
 .habit-heatmap .heatmap-cell{width:9px;height:9px;border-radius:2px}
+.habit-heatmap .heatmap-cell.blank{background:transparent;pointer-events:none}
 .habit-heatmap-labels{display:flex;flex-direction:column;gap:3px}
 .habit-heatmap-label{height:9px;font-size:8px;color:var(--text-light);line-height:9px}
 .habit-heatmap-legend{display:flex;align-items:center;gap:4px;margin-top:8px;justify-content:flex-end}
@@ -974,7 +975,6 @@ function autoSelectSkills(force=false){if(!force&&evSelectedSkills.length)return
 /* ── HABITS ── */
 function renderHabits(){
   const el=document.getElementById('habits-content');
-  if(!events.length){el.innerHTML='<div class="no-data">No data yet.<br>Add events to your calendar and your habit patterns will appear here automatically.</div>';return;}
   const eventDays=[...new Set(events.map(ev=>ev.date))].sort();
   const eventDaySet=new Set(eventDays);
   let currentStreak=0,streakDay=new Date(today);
@@ -997,35 +997,31 @@ function renderHabits(){
   const heatData={};events.forEach(ev=>{heatData[ev.date]=(heatData[ev.date]||0)+1;});
   const maxH=Math.max(...Object.values(heatData),1);
   function hc(c){if(!c)return'';const p=c/maxH;return p<=.25?'l1':p<=.5?'l2':p<=.75?'l3':'l4';}
-  const currentStart=ad(today,-29),previousStart=ad(today,-59),previousEnd=ad(today,-30);
-  const currentActivity=events.filter(ev=>pd(ev.date)>=currentStart&&pd(ev.date)<=today).length;
-  const previousActivity=events.filter(ev=>pd(ev.date)>=previousStart&&pd(ev.date)<=previousEnd).length;
+  const currentMonthStart=new Date(today.getFullYear(),today.getMonth(),1),lastMonthStart=new Date(today.getFullYear(),today.getMonth()-1,1),lastMonthEnd=new Date(today.getFullYear(),today.getMonth(),0);
+  const currentActivity=events.filter(ev=>pd(ev.date)>=currentMonthStart&&pd(ev.date)<=today).length;
+  const previousActivity=events.filter(ev=>pd(ev.date)>=lastMonthStart&&pd(ev.date)<=lastMonthEnd).length;
   const activityDelta=currentActivity-previousActivity;
   const activityPct=previousActivity?Math.round(activityDelta/previousActivity*100):(currentActivity?100:0);
   const tickerClass=activityDelta>0?'up':activityDelta<0?'down':'flat';
   const tickerText=(activityDelta>0?'+':'')+activityPct+'%';
-  const heatWeeks=5;
-  const alignedStart=ad(today,-(today.getDay()+(heatWeeks-1)*7));
-  const heatDays=Array.from({length:heatWeeks*7},(_,i)=>ad(alignedStart,i));
-  const heatRows=[];for(let w=0;w<heatWeeks;w++)heatRows.push(heatDays.slice(w*7,(w+1)*7));
+  function monthHeatRows(base){const y=base.getFullYear(),m=base.getMonth(),first=new Date(y,m,1),daysInMonth=new Date(y,m+1,0).getDate(),cells=[];for(let i=0;i<first.getDay();i++)cells.push(null);for(let d=1;d<=daysInMonth;d++)cells.push(new Date(y,m,d));while(cells.length%7)cells.push(null);const rows=[];for(let i=0;i<cells.length;i+=7)rows.push(cells.slice(i,i+7));return rows;}
+  function renderHeatRows(rows){return '<div class="habit-heatmap"><div class="habit-heatmap-calendar"><div class="habit-heatmap-weekdays">'+['S','M','T','W','T','F','S'].map(d=>'<span>'+d+'</span>').join('')+'</div><div class="habit-heatmap-grid">'+rows.map(week=>'<div class="habit-heatmap-row">'+week.map(day=>{if(!day)return'<div class="heatmap-cell blank"></div>';const ds=fd(day);const cnt=heatData[ds]||0;const fut=day>today;return'<div class="heatmap-cell '+(fut?'':hc(cnt))+'" style="'+(fut?'opacity:.2':'')+';" title="'+ds+': '+cnt+' event'+(cnt!==1?'s':'')+'"></div>';}).join('')+'</div>').join('')+'</div></div></div><div class="habit-heatmap-legend"><span>Less</span>'+['','l1','l2','l3','l4'].map(c=>'<div class="heatmap-cell '+c+'" style="flex-shrink:0"></div>').join('')+'<span>More</span></div>';}
+  const monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const lastMonthRows=monthHeatRows(lastMonthStart),currentMonthRows=monthHeatRows(currentMonthStart);
 
   // Skills frequency
   const skillCount={};events.forEach(ev=>{(ev.skills||[]).forEach(s=>{skillCount[s]=(skillCount[s]||0)+1;});});
   const topSkills=Object.entries(skillCount).sort((a,b)=>b[1]-a[1]).slice(0,8);
   const catEntries=Object.entries(catTime).sort((a,b)=>b[1]-a[1]);
   let pieStart=0;
-  const pieStops=catEntries.map(([cat,mins])=>{const pct=mins/totalCatTime*100,stop=(pieStart+pct);const color=CATS[cat]?.color||'#999';const seg=color+' '+pieStart.toFixed(2)+'% '+stop.toFixed(2)+'%';pieStart=stop;return seg;}).join(',');
-  const pieLegend=catEntries.map(([cat,mins])=>{const pct=Math.round(mins/totalCatTime*100);return'<div class="cat-legend-row"><span class="cat-legend-dot" style="background:'+(CATS[cat]?.color||'#999')+'"></span><span class="cat-legend-name">'+(CATS[cat]?.label||cat)+'</span><span class="cat-legend-pct">'+pct+'%</span></div>';}).join('');
+  const pieStops=catEntries.map(([cat,mins])=>{const pct=mins/totalCatTime*100,stop=(pieStart+pct);const color=CATS[cat]?.color||'#999';const seg=color+' '+pieStart.toFixed(2)+'% '+stop.toFixed(2)+'%';pieStart=stop;return seg;}).join(',')||'var(--surface2) 0% 100%';
+  const pieLegend=catEntries.length?catEntries.map(([cat,mins])=>{const pct=Math.round(mins/totalCatTime*100);return'<div class="cat-legend-row"><span class="cat-legend-dot" style="background:'+(CATS[cat]?.color||'#999')+'"></span><span class="cat-legend-name">'+(CATS[cat]?.label||cat)+'</span><span class="cat-legend-pct">'+pct+'%</span></div>';}).join(''):'<div class="empty-goals" style="padding:.5rem;text-align:left">No category time yet</div>';
 
   el.innerHTML=
     '<div class="page-header" style="margin-bottom:0"><div class="page-title">My <span>Habits</span></div></div>'+
     '<div class="habits-top-grid">'+
-    '<div class="panel"><div class="panel-title">Heatmap</div>'+
-    '<div class="habit-heatmap"><div class="habit-heatmap-calendar"><div class="habit-heatmap-weekdays">'+['S','M','T','W','T','F','S'].map(d=>'<span>'+d+'</span>').join('')+'</div>'+
-    '<div class="habit-heatmap-grid">'+heatRows.map(week=>'<div class="habit-heatmap-row">'+week.map(day=>{const ds=fd(day);const cnt=heatData[ds]||0;const fut=day>today;return'<div class="heatmap-cell '+(fut?'':hc(cnt))+'" style="'+(fut?'opacity:.2':'')+';" title="'+ds+': '+cnt+' event'+(cnt!==1?'s':'')+'"></div>';}).join('')+'</div>').join('')+
-    '</div></div></div>'+
-    '<div class="habit-heatmap-legend"><span>Less</span>'+['','l1','l2','l3','l4'].map(c=>'<div class="heatmap-cell '+c+'" style="flex-shrink:0"></div>').join('')+'<span>More</span></div></div>'+
-    '<div class="activity-summary"><div><div class="panel-title">Activity last month</div><div class="activity-summary-num">'+currentActivity+'</div><div class="activity-summary-sub">event'+(currentActivity!==1?'s':'')+' logged</div></div><div><div class="activity-ticker-wrap"><span class="activity-ticker-label">vs previous 30 days</span><div class="activity-ticker '+tickerClass+'">'+tickerText+'</div></div><div class="activity-summary-note">Compares logged events, not hours.</div></div></div>'+
+    '<div class="panel"><div class="panel-title">'+monthNames[lastMonthStart.getMonth()]+' heatmap</div>'+renderHeatRows(lastMonthRows)+'</div>'+
+    '<div class="panel"><div class="panel-head"><div class="panel-title">'+monthNames[currentMonthStart.getMonth()]+' activity</div><div class="activity-ticker-wrap"><span class="activity-ticker-label">vs last month</span><div class="activity-ticker '+tickerClass+'">'+tickerText+'</div></div></div>'+renderHeatRows(currentMonthRows)+'</div>'+
     '<div class="panel"><div class="panel-title">Time by category</div><div class="pie-wrap"><div class="pie-chart" style="background:conic-gradient('+pieStops+')"><div class="pie-center">'+Math.round(totalCatTime/60)+'h<br>total</div></div><div class="pie-legend">'+pieLegend+'</div></div></div>'+
     '<div class="streak-card"><div class="streak-label">Current Streak</div><div><div class="streak-fire">&#128293;</div><div class="streak-number">'+currentStreak+'</div><div class="streak-days">day'+(currentStreak!==1?'s':'')+'</div></div><div class="streak-best">Best streak: '+bestStreak+' day'+(bestStreak!==1?'s':'')+'</div></div>'+
     '</div>'+
