@@ -217,6 +217,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .time-label{font-size:9px;color:var(--text-light)}
 .activity-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:.5px solid var(--border)}
 .activity-row:last-child{border-bottom:none}
+.activity-focus{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:1rem}
+.activity-pie{width:126px;height:126px;border-radius:50%;position:relative;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
+.activity-pie::after{content:'';position:absolute;inset:30px;background:var(--surface);border-radius:50%;box-shadow:0 0 0 1px var(--border)}
+.activity-pie-center{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;z-index:1;font-size:12px;font-weight:800;color:var(--text-muted);line-height:1.2}
 .activity-rank{font-size:11px;font-weight:600;color:var(--text-light);width:18px;text-align:center}
 .activity-name{flex:1;font-size:13px;font-weight:500}
 .activity-bar-wrap{width:100px;height:5px;background:var(--surface2);border-radius:3px;overflow:hidden}
@@ -985,8 +989,8 @@ function renderHabits(){
   while(eventDaySet.has(fd(streakDay))){currentStreak++;streakDay=ad(streakDay,-1);}
   let bestStreak=0,run=0,prev=null;
   eventDays.forEach(ds=>{const d=pd(ds);if(prev&&Math.round((d-prev)/864e5)===1)run++;else run=1;bestStreak=Math.max(bestStreak,run);prev=d;});
-  const titleCount={};events.forEach(ev=>{const t=ev.title.toLowerCase().trim();titleCount[t]=(titleCount[t]||0)+1;});
-  const top=Object.entries(titleCount).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const titleCount={},titleTime={};events.forEach(ev=>{const t=ev.title.toLowerCase().trim();titleCount[t]=(titleCount[t]||0)+1;titleTime[t]=(titleTime[t]||0)+(ev.dur||60);});
+  const top=Object.entries(titleCount).sort((a,b)=>b[1]-a[1]).slice(0,4);
   const catCount={},catTime={};events.forEach(ev=>{catCount[ev.cat]=(catCount[ev.cat]||0)+1;catTime[ev.cat]=(catTime[ev.cat]||0)+(ev.dur||60);});
   const total=events.length;
   const totalCatTime=Math.max(1,Object.values(catTime).reduce((s,n)=>s+n,0));
@@ -1020,6 +1024,8 @@ function renderHabits(){
   let pieStart=0;
   const pieStops=catEntries.map(([cat,mins])=>{const pct=mins/totalCatTime*100,stop=(pieStart+pct);const color=CATS[cat]?.color||'#999';const seg=color+' '+pieStart.toFixed(2)+'% '+stop.toFixed(2)+'%';pieStart=stop;return seg;}).join(',')||'var(--surface2) 0% 100%';
   const pieLegend=catEntries.length?catEntries.map(([cat,mins])=>{const pct=Math.round(mins/totalCatTime*100);return'<div class="cat-legend-row"><span class="cat-legend-dot" style="background:'+(CATS[cat]?.color||'#999')+'"></span><span class="cat-legend-name">'+(CATS[cat]?.label||cat)+'</span><span class="cat-legend-pct">'+pct+'%</span></div>';}).join(''):'<div class="empty-goals" style="padding:.5rem;text-align:left">No category time yet</div>';
+  const activityColors=['#2C5F2E','#185FA5','#BA7517','#534AB7'],topActivityMins=top.reduce((s,[name])=>s+(titleTime[name]||0),0)||1;let actPieStart=0;
+  const activityPieStops=top.map(([name],i)=>{const pct=(titleTime[name]||0)/topActivityMins*100,stop=actPieStart+pct,color=activityColors[i%activityColors.length],seg=color+' '+actPieStart.toFixed(2)+'% '+stop.toFixed(2)+'%';actPieStart=stop;return seg;}).join(',')||'var(--surface2) 0% 100%';
 
   el.innerHTML=
     '<div class="page-header" style="margin-bottom:0"><div class="page-title">My <span>Habits</span></div></div>'+
@@ -1030,7 +1036,7 @@ function renderHabits(){
     '<div class="streak-card"><div class="streak-label">Current Streak</div><div><div class="streak-fire">&#128293;</div><div class="streak-number">'+currentStreak+'</div><div class="streak-days">day'+(currentStreak!==1?'s':'')+'</div></div><div class="streak-best">Best streak: '+bestStreak+' day'+(bestStreak!==1?'s':'')+'</div></div>'+
     '</div>'+
     '<div class="two-col">'+
-    '<div class="panel"><div class="panel-title">Most frequent activities</div>'+(top.length?top.map(([name,cnt],i)=>'<div class="activity-row"><span class="activity-rank">'+(i+1)+'</span><span class="activity-name">'+name.charAt(0).toUpperCase()+name.slice(1)+'</span><div class="activity-bar-wrap"><div class="activity-bar-fill" style="width:'+Math.round(cnt/top[0][1]*100)+'%;background:var(--accent)"></div></div><span class="activity-count">'+cnt+'x</span></div>').join(''):'<div class="empty-goals">Add more events to see patterns</div>')+'</div>'+
+    '<div class="panel"><div class="panel-title">Most frequent activities</div>'+(top.length?'<div class="activity-focus"><div>'+top.map(([name,cnt],i)=>'<div class="activity-row"><span class="activity-rank" style="color:'+activityColors[i%activityColors.length]+'">'+(i+1)+'</span><span class="activity-name">'+name.charAt(0).toUpperCase()+name.slice(1)+'</span><div class="activity-bar-wrap"><div class="activity-bar-fill" style="width:'+Math.round(cnt/top[0][1]*100)+'%;background:'+activityColors[i%activityColors.length]+'"></div></div><span class="activity-count">'+cnt+'x</span></div>').join('')+'</div><div class="activity-pie" style="background:conic-gradient('+activityPieStops+')"><div class="activity-pie-center">'+Math.round(topActivityMins/60)+'h<br>top 4</div></div></div>':'<div class="empty-goals">Add more events to see patterns</div>')+'</div>'+
     '<div class="habit-chart-stack">'+
     '<div class="panel"><div class="panel-title">When you\'re most active</div><div class="time-chart">'+timeBuckets.map((cnt,i)=>'<div class="time-col"><span style="font-size:9px;color:var(--text-muted)">'+(cnt||'')+'</span><div class="time-bar" style="height:'+Math.max(2,Math.round(cnt/maxT*60))+'px;background:'+(cnt===Math.max(...timeBuckets)?'var(--accent)':'var(--accent-light)')+'"></div><span class="time-label">'+timeLbls[i]+'</span></div>').join('')+'</div></div>'+
     '<div class="panel"><div class="panel-title">Most active days</div><div class="bar-chart">'+dowCount.map((cnt,i)=>'<div class="bar-col"><span class="bar-val">'+(cnt||'')+'</span><div class="bar-fill" style="height:'+Math.max(2,Math.round(cnt/maxD*90))+'px;background:'+(cnt===Math.max(...dowCount)?'var(--accent)':'var(--accent-light)')+'"></div><span class="bar-label">'+dowLbls[i]+'</span></div>').join('')+'</div></div></div></div>'+
