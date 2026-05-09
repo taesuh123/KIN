@@ -967,27 +967,42 @@ function toggleSkill(s){
 function selectedGoalIds(){return [...new Set(evSelectedGoalIds.map(Number).filter(Boolean))];}
 function syncGoalChecks(){evSelectedGoalIds=Array.from(document.querySelectorAll('.goal-check-input:checked')).map(el=>parseInt(el.value)).filter(Boolean).concat(evSelectedGoalIds.filter(id=>!document.querySelector('.goal-check-input[value="'+id+'"]')));evSelectedGoalIds=[...new Set(evSelectedGoalIds)];}
 function toggleEventGoal(id,checked){id=parseInt(id);if(checked&&!evSelectedGoalIds.includes(id))evSelectedGoalIds.push(id);if(!checked)evSelectedGoalIds=evSelectedGoalIds.filter(x=>x!==id);updateGoalPreview();autoSelectSkills(true);}
-function renderEventGTypePills(){normalizeGoalTypes();const c=document.getElementById('ev-gtype-pills');if(!c)return;c.innerHTML='';goalTypes.forEach(t=>{const p=document.createElement('div');p.className='gtype-pill'+(selEventGType===t.id?' selected':'');p.style.background=t.bg;p.style.color=t.color;p.textContent=t.label;p.onclick=()=>{selEventGType=t.id;renderEventGTypePills();renderGoalChecks();};c.appendChild(p);});}
+function renderEventGTypePills(){normalizeGoalTypes();const c=document.getElementById('ev-gtype-pills');if(!c)return;c.innerHTML='';goalTypes.forEach(t=>{const p=document.createElement('div');p.className='gtype-pill'+(selEventGType===t.id?' selected':'');p.style.background=t.bg;p.style.color=t.color;p.textContent=t.label;p.onclick=()=>{selEventGType=t.id;renderEventGTypePills();renderGoalChecks();autoSelectSkills(true);};c.appendChild(p);});}
 function renderGoalChecks(selected=null){if(Array.isArray(selected))evSelectedGoalIds=[...new Set(selected.map(Number).filter(Boolean))];const wrap=document.getElementById('ev-goal-checks');const t=goalType(selEventGType);const active=goals.filter(g=>!g.done&&(g.type||'personal')===t.id);if(!active.length){wrap.innerHTML='<div class="sidebar-empty">No active '+esc(t.label.toLowerCase())+' goals yet</div>';updateGoalPreview();return;}wrap.innerHTML=active.map(g=>'<label class="goal-check-row"><input class="goal-check-input" type="checkbox" value="'+g.id+'" '+(evSelectedGoalIds.includes(g.id)?'checked':'')+' onchange="toggleEventGoal(this.value,this.checked)"><span><strong>'+esc(g.title)+'</strong><br><span style="color:var(--text-muted)">'+esc(t.label)+'</span></span></label>').join('');updateGoalPreview();}
 function updateGoalPreview(){const pv=document.getElementById('ev-gpreview');const picked=selectedGoalIds().map(id=>goals.find(g=>g.id===id)).filter(Boolean);pv.innerHTML=picked.map(g=>{const t=goalType(g.type);return'<div class="linked-badge" style="'+goalTypeStyle(t)+'">&#10003; '+esc(g.title)+'</div>';}).join('');}
-function skillSuggestionPool(text){
-  const t=text.toLowerCase(),hits=[];
-  const add=(words,skills)=>{if(words.some(w=>t.includes(w)))skills.forEach(s=>hits.push(s));};
-  add(['run','cardio','5k','marathon','mile','fitness','gym','workout'],['Cardio','Discipline','Goal Setting','Time Management']);
-  add(['weight','strength','lift','gym','nutrition','bench','squat','deadlift','push','pull','sets','reps','protein'],['Strength Training','Nutrition','Discipline','Habit Building']);
-  add(['read','study','exam','class','academic','research','book','paper','essay','reflection','draft','revise','history'],['Research','Reading','Critical Thinking','Writing']);
-  add(['code','app','web','javascript','python','react','software'],['Software Development','Problem Solving','JavaScript','Web Development']);
-  add(['presentation','speak','pitch'],['Public Speaking','Communication','Presentation Skills','Confidence']);
-  add(['meeting','meet','call','1:1','interview','discuss','final','sales','client','customer'],['Communication','Active Listening','Collaboration','Relationship Building']);
-  add(['marketing','brand','social'],['Marketing','Content Marketing','Creativity','Analytics']);
-  add(['finance','budget','money','bill','tax','saving','spend'],['Finance','Budgeting','Financial Analysis','Excel']);
-  add(['design','figma','photo','video'],['Design Thinking','Creativity','Figma','Visual Communication']);
-  add(['doctor','dentist','appointment','therapy','health'],['Scheduling','Self-Motivation','Active Listening','Healthcare Management']);
-  add(['email','follow up','update','plan','organize','schedule','calendar'],['Scheduling','Time Management','Communication','Documentation']);
-  return hits;
+function skillSuggestionPool(parts){
+  const scores={},norm=s=>(s||'').toLowerCase();
+  const addScore=(skills,points)=>skills.forEach(s=>{if(allSkills.includes(s))scores[s]=(scores[s]||0)+points;});
+  const has=(text,words)=>words.some(w=>text.includes(w));
+  const scan=(text,weight=1)=>{
+    const t=norm(text);
+    if(has(t,['finance','financial','managerial finance','accounting','budget','cash flow','balance sheet','income statement','forecast','valuation','model','excel']))addScore(['Excel','Financial Analysis','Financial Modeling','Budgeting','Finance'],6*weight);
+    if(has(t,['exam','final','midterm','quiz','test']))addScore(['Time Management','Attention to Detail','Critical Thinking','Discipline'],5*weight);
+    if(has(t,['study','course','class','lecture','homework']))addScore(['Time Management','Critical Thinking','Discipline','Active Listening'],3*weight);
+    if(has(t,['paper','essay','reflection','draft','revise','write','writing']))addScore(['Writing','Research','Critical Thinking','Time Management'],5*weight);
+    if(has(t,['read','reading','book','chapter']))addScore(['Reading','Research','Critical Thinking','Time Management'],4*weight);
+    if(has(t,['run','cardio','5k','marathon','mile','fitness','gym','workout']))addScore(['Cardio','Discipline','Habit Building','Time Management'],5*weight);
+    if(has(t,['weight','strength','lift','bench','squat','deadlift','push','pull','sets','reps','protein']))addScore(['Strength Training','Nutrition','Discipline','Habit Building'],6*weight);
+    if(has(t,['code','app','web','javascript','python','react','software']))addScore(['Software Development','Problem Solving','JavaScript','Web Development'],5*weight);
+    if(has(t,['presentation','speak','pitch']))addScore(['Public Speaking','Communication','Presentation Skills','Confidence'],5*weight);
+    if(has(t,['meeting','meet','call','1:1','interview','discuss','sales','client','customer']))addScore(['Communication','Active Listening','Collaboration','Relationship Building'],5*weight);
+    if(has(t,['marketing','brand','social']))addScore(['Marketing','Content Marketing','Creativity','Analytics'],5*weight);
+    if(has(t,['design','figma','photo','video']))addScore(['Design Thinking','Creativity','Figma','Visual Communication'],5*weight);
+    if(has(t,['doctor','dentist','appointment','therapy','health']))addScore(['Scheduling','Self-Motivation','Active Listening','Healthcare Management'],5*weight);
+    if(has(t,['email','follow up','update','plan','organize','schedule','calendar']))addScore(['Scheduling','Time Management','Communication','Documentation'],4*weight);
+  };
+  scan(parts.title,1.6);
+  scan(parts.notes,1.45);
+  scan(parts.goalText,1.15);
+  scan(parts.categoryText+' '+parts.goalTypeText,.55);
+  const full=norm([parts.title,parts.notes,parts.goalText,parts.categoryText,parts.goalTypeText].join(' '));
+  if(has(full,['finance','financial','managerial finance','accounting'])&&has(full,['exam','final','midterm','quiz','test','class','course']))addScore(['Excel','Time Management','Financial Analysis','Attention to Detail'],10);
+  if(norm(parts.categoryText).includes('finance'))addScore(['Finance','Excel','Budgeting','Financial Analysis'],3);
+  if(norm(parts.categoryText).includes('school')||norm(parts.goalTypeText).includes('academic'))addScore(['Time Management','Critical Thinking','Discipline'],1.5);
+  return Object.entries(scores).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).map(([skill])=>skill);
 }
 function autoSelectSkills(force=false){if(!force&&evSelectedSkills.length)return;const title=document.getElementById('ev-title').value||'';const goalText=selectedGoalIds().map(id=>{const g=goals.find(x=>x.id===id);return g?(g.title+' '+(g.desc||'')):'';
-  }).join(' ');const notes=document.getElementById('ev-notes')?.value||'';let suggested=[...new Set(skillSuggestionPool(title+' '+goalText+' '+notes))].filter(s=>allSkills.includes(s));const fallback=['Communication','Time Management','Problem Solving','Discipline'];fallback.forEach(s=>{if(suggested.length<4&&allSkills.includes(s)&&!suggested.includes(s))suggested.push(s);});evSelectedSkills=suggested.slice(0,4);renderSkillTags();renderSelectedSkills();}
+  }).join(' ');const notes=document.getElementById('ev-notes')?.value||'';const categoryText=CATS[selCat]?.label||selCat;const goalTypeText=goalType(selEventGType)?.label||selEventGType;let suggested=[...new Set(skillSuggestionPool({title,notes,goalText,categoryText,goalTypeText}))].filter(s=>allSkills.includes(s));const fallback=['Time Management','Attention to Detail','Communication','Problem Solving','Discipline'];fallback.forEach(s=>{if(suggested.length<4&&allSkills.includes(s)&&!suggested.includes(s))suggested.push(s);});evSelectedSkills=suggested.slice(0,4);renderSkillTags();renderSelectedSkills();}
 
 /* ── HABITS ── */
 function renderHabits(){
@@ -1164,7 +1179,7 @@ function openModal(date){
 }
 function openModalOnDate(ds){openModal(ds);}
 function closeModal(){document.getElementById('modal-bg').classList.remove('open');}
-function renderCatPills(){const c=document.getElementById('cat-pills-form');c.innerHTML='';Object.entries(CATS).forEach(([k])=>{const p=document.createElement('div');p.className='cat-pill cat-'+k+(selCat===k?' selected':'');p.textContent=CATS[k].label;p.onclick=()=>{selCat=k;renderCatPills();};c.appendChild(p);});}
+function renderCatPills(){const c=document.getElementById('cat-pills-form');c.innerHTML='';Object.entries(CATS).forEach(([k])=>{const p=document.createElement('div');p.className='cat-pill cat-'+k+(selCat===k?' selected':'');p.textContent=CATS[k].label;p.onclick=()=>{selCat=k;renderCatPills();autoSelectSkills(true);};c.appendChild(p);});}
 function updateGoalDrop(){renderGoalChecks(selectedGoalIds());}
 function renderRepeatDays(selected=[]){const labels=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];document.getElementById('repeat-days').innerHTML=labels.map((l,i)=>'<label class="repeat-day"><input type="checkbox" class="repeat-day-input" value="'+i+'" '+(selected.includes(i)?'checked':'')+'>'+l+'</label>').join('');}
 function selectedRepeatDays(){return Array.from(document.querySelectorAll('.repeat-day-input:checked')).map(x=>parseInt(x.value));}
@@ -1251,6 +1266,7 @@ function closeDayModal(){document.getElementById('day-modal-bg').classList.remov
 document.getElementById('ev-time').addEventListener('input',updateDurationLabel);
 document.getElementById('ev-end').addEventListener('input',updateDurationLabel);
 document.getElementById('ev-title').addEventListener('blur',()=>autoSelectSkills());
+document.getElementById('ev-title').addEventListener('input',()=>autoSelectSkills(true));
 document.getElementById('ev-notes').addEventListener('input',()=>autoSelectSkills(true));
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeDetail();closeGoalModal();closeGoalTypeModal();closeDayModal();}if(e.key==='Enter'&&document.getElementById('modal-bg').classList.contains('open')&&e.target.tagName!=='SELECT'&&e.target.id!=='skills-search')saveEvent();if(e.key==='Enter'&&document.getElementById('goal-modal-bg').classList.contains('open')&&e.target.tagName!=='SELECT')saveGoal();if(e.key==='Enter'&&document.getElementById('goal-type-modal-bg').classList.contains('open'))saveGoalType();});
 document.addEventListener('click',e=>{const det=document.getElementById('event-detail');if(det.classList.contains('open')&&!det.contains(e.target))closeDetail();});
