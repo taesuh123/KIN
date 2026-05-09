@@ -175,6 +175,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .heatmap-cell.l2{background:#81C784}
 .heatmap-cell.l3{background:#4CAF50}
 .heatmap-cell.l4{background:#2C5F2E}
+.habit-heatmap{display:flex;gap:4px;align-items:flex-start;justify-content:center}
+.habit-heatmap-grid{display:flex;flex-direction:column;gap:3px}
+.habit-heatmap-row{display:flex;gap:3px}
+.habit-heatmap .heatmap-cell{width:10px;height:10px;border-radius:2px}
+.habit-heatmap-labels{display:flex;flex-direction:column;gap:3px}
+.habit-heatmap-label{height:10px;font-size:8px;color:var(--text-light);line-height:10px}
+.habit-heatmap-legend{display:flex;align-items:center;gap:4px;margin-top:8px;justify-content:flex-end}
+.habit-heatmap-legend span{font-size:10px;color:var(--text-light)}
+.habit-chart-stack{display:flex;flex-direction:column;gap:1.25rem}
 .bar-chart{display:flex;align-items:flex-end;gap:6px;height:110px}
 .bar-col{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1}
 .bar-fill{width:100%;border-radius:4px 4px 0 0;min-height:2px}
@@ -198,6 +207,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .cat-legend-bar{flex:2;height:5px;background:var(--surface2);border-radius:3px;overflow:hidden}
 .cat-legend-fill{height:100%;border-radius:3px}
 .cat-legend-pct{font-size:12px;color:var(--text-muted);width:30px;text-align:right}
+.pie-wrap{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:1.25rem}
+.pie-chart{width:132px;height:132px;border-radius:50%;position:relative;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
+.pie-chart::after{content:'';position:absolute;inset:31px;background:var(--surface);border-radius:50%;box-shadow:0 0 0 1px var(--border)}
+.pie-center{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:1;font-size:12px;font-weight:700;color:var(--text-muted);text-align:center;line-height:1.2}
+.pie-legend{display:flex;flex-direction:column;gap:7px}
 .pgc{background:var(--surface);border-radius:var(--r);border:.5px solid var(--border-strong);padding:1.25rem 1.5rem}
 .pgc-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px}
 .pgc-title{font-size:15px;font-weight:500}
@@ -931,8 +945,9 @@ function renderHabits(){
   if(!events.length){el.innerHTML='<div class="no-data">No data yet.<br>Add events to your calendar and your habit patterns will appear here automatically.</div>';return;}
   const titleCount={};events.forEach(ev=>{const t=ev.title.toLowerCase().trim();titleCount[t]=(titleCount[t]||0)+1;});
   const top=Object.entries(titleCount).sort((a,b)=>b[1]-a[1]).slice(0,8);
-  const catCount={};events.forEach(ev=>{catCount[ev.cat]=(catCount[ev.cat]||0)+1;});
+  const catCount={},catTime={};events.forEach(ev=>{catCount[ev.cat]=(catCount[ev.cat]||0)+1;catTime[ev.cat]=(catTime[ev.cat]||0)+(ev.dur||60);});
   const total=events.length;
+  const totalCatTime=Math.max(1,Object.values(catTime).reduce((s,n)=>s+n,0));
   const timeBuckets=new Array(8).fill(0);
   const timeLbls=['6am','8am','10am','12pm','2pm','4pm','6pm','8pm'];
   events.forEach(ev=>{if(!ev.time)return;const h=parseInt(ev.time);const b=Math.floor((h-6)/2);if(b>=0&&b<8)timeBuckets[b]++;});
@@ -952,21 +967,26 @@ function renderHabits(){
   // Skills frequency
   const skillCount={};events.forEach(ev=>{(ev.skills||[]).forEach(s=>{skillCount[s]=(skillCount[s]||0)+1;});});
   const topSkills=Object.entries(skillCount).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const catEntries=Object.entries(catTime).sort((a,b)=>b[1]-a[1]);
+  let pieStart=0;
+  const pieStops=catEntries.map(([cat,mins])=>{const pct=mins/totalCatTime*100,stop=(pieStart+pct);const color=CATS[cat]?.color||'#999';const seg=color+' '+pieStart.toFixed(2)+'% '+stop.toFixed(2)+'%';pieStart=stop;return seg;}).join(',');
+  const pieLegend=catEntries.map(([cat,mins])=>{const pct=Math.round(mins/totalCatTime*100);return'<div class="cat-legend-row"><span class="cat-legend-dot" style="background:'+(CATS[cat]?.color||'#999')+'"></span><span class="cat-legend-name">'+(CATS[cat]?.label||cat)+'</span><span class="cat-legend-pct">'+pct+'%</span></div>';}).join('');
 
   el.innerHTML=
     '<div class="page-header" style="margin-bottom:0"><div class="page-title">My <span>Habits</span></div></div>'+
+    '<div class="two-col">'+
     '<div class="panel"><div class="panel-title">Activity &mdash; last 10 weeks</div>'+
-    '<div style="display:flex;gap:4px;align-items:flex-start">'+
-    '<div style="display:flex;flex-direction:column;gap:3px"><div style="height:13px;font-size:9px;color:var(--text-light);line-height:13px">&nbsp;</div><div style="height:13px;font-size:9px;color:var(--text-light);line-height:13px">Mon</div><div style="height:13px;font-size:9px;color:var(--text-light);line-height:13px">&nbsp;</div><div style="height:13px;font-size:9px;color:var(--text-light);line-height:13px">Wed</div><div style="height:13px;font-size:9px;color:var(--text-light);line-height:13px">&nbsp;</div><div style="height:13px;font-size:9px;color:var(--text-light);line-height:13px">Fri</div><div style="height:13px;font-size:9px;color:var(--text-light);line-height:13px">&nbsp;</div></div>'+
-    '<div style="display:flex;flex-direction:column;gap:3px">'+[0,1,2,3,4,5,6].map(dow=>'<div style="display:flex;gap:3px">'+heatRows.map(week=>{const day=week[dow];const ds=fd(day);const cnt=heatData[ds]||0;const fut=day>today;return'<div class="heatmap-cell '+(fut?'':hc(cnt))+'" style="'+(fut?'opacity:.2':'')+';" title="'+ds+': '+cnt+' event'+(cnt!==1?'s':'')+'"></div>';}).join('')+'</div>').join('')+
+    '<div class="habit-heatmap"><div class="habit-heatmap-labels"><div class="habit-heatmap-label">&nbsp;</div><div class="habit-heatmap-label">Mon</div><div class="habit-heatmap-label">&nbsp;</div><div class="habit-heatmap-label">Wed</div><div class="habit-heatmap-label">&nbsp;</div><div class="habit-heatmap-label">Fri</div><div class="habit-heatmap-label">&nbsp;</div></div>'+
+    '<div class="habit-heatmap-grid">'+[0,1,2,3,4,5,6].map(dow=>'<div class="habit-heatmap-row">'+heatRows.map(week=>{const day=week[dow];const ds=fd(day);const cnt=heatData[ds]||0;const fut=day>today;return'<div class="heatmap-cell '+(fut?'':hc(cnt))+'" style="'+(fut?'opacity:.2':'')+';" title="'+ds+': '+cnt+' event'+(cnt!==1?'s':'')+'"></div>';}).join('')+'</div>').join('')+
     '</div></div>'+
-    '<div style="display:flex;align-items:center;gap:4px;margin-top:8px;justify-content:flex-end"><span style="font-size:10px;color:var(--text-light)">Less</span>'+['','l1','l2','l3','l4'].map(c=>'<div class="heatmap-cell '+c+'" style="flex-shrink:0"></div>').join('')+'<span style="font-size:10px;color:var(--text-light)">More</span></div></div>'+
-    '<div class="two-col">'+
+    '<div class="habit-heatmap-legend"><span>Less</span>'+['','l1','l2','l3','l4'].map(c=>'<div class="heatmap-cell '+c+'" style="flex-shrink:0"></div>').join('')+'<span>More</span></div></div>'+
     '<div class="panel"><div class="panel-title">Most frequent activities</div>'+(top.length?top.map(([name,cnt],i)=>'<div class="activity-row"><span class="activity-rank">'+(i+1)+'</span><span class="activity-name">'+name.charAt(0).toUpperCase()+name.slice(1)+'</span><div class="activity-bar-wrap"><div class="activity-bar-fill" style="width:'+Math.round(cnt/top[0][1]*100)+'%;background:var(--accent)"></div></div><span class="activity-count">'+cnt+'x</span></div>').join(''):'<div class="empty-goals">Add more events to see patterns</div>')+'</div>'+
-    '<div class="panel"><div class="panel-title">Time by category</div><div class="cat-legend">'+Object.entries(catCount).sort((a,b)=>b[1]-a[1]).map(([cat,cnt])=>'<div class="cat-legend-row"><span class="cat-legend-dot" style="background:'+CATS[cat]?.color+'"></span><span class="cat-legend-name">'+(CATS[cat]?.label||cat)+'</span><div class="cat-legend-bar"><div class="cat-legend-fill" style="width:'+Math.round(cnt/total*100)+'%;background:'+CATS[cat]?.color+'"></div></div><span class="cat-legend-pct">'+Math.round(cnt/total*100)+'%</span></div>').join('')+'</div></div></div>'+
+    '</div>'+
     '<div class="two-col">'+
+    '<div class="panel"><div class="panel-title">Time by category</div><div class="pie-wrap"><div class="pie-chart" style="background:conic-gradient('+pieStops+')"><div class="pie-center">'+Math.round(totalCatTime/60)+'h<br>total</div></div><div class="pie-legend">'+pieLegend+'</div></div></div>'+
+    '<div class="habit-chart-stack">'+
     '<div class="panel"><div class="panel-title">When you\'re most active</div><div class="time-chart">'+timeBuckets.map((cnt,i)=>'<div class="time-col"><span style="font-size:9px;color:var(--text-muted)">'+(cnt||'')+'</span><div class="time-bar" style="height:'+Math.max(2,Math.round(cnt/maxT*60))+'px;background:'+(cnt===Math.max(...timeBuckets)?'var(--accent)':'var(--accent-light)')+'"></div><span class="time-label">'+timeLbls[i]+'</span></div>').join('')+'</div></div>'+
-    '<div class="panel"><div class="panel-title">Most active days</div><div class="bar-chart">'+dowCount.map((cnt,i)=>'<div class="bar-col"><span class="bar-val">'+(cnt||'')+'</span><div class="bar-fill" style="height:'+Math.max(2,Math.round(cnt/maxD*90))+'px;background:'+(cnt===Math.max(...dowCount)?'var(--accent)':'var(--accent-light)')+'"></div><span class="bar-label">'+dowLbls[i]+'</span></div>').join('')+'</div></div></div>'+
+    '<div class="panel"><div class="panel-title">Most active days</div><div class="bar-chart">'+dowCount.map((cnt,i)=>'<div class="bar-col"><span class="bar-val">'+(cnt||'')+'</span><div class="bar-fill" style="height:'+Math.max(2,Math.round(cnt/maxD*90))+'px;background:'+(cnt===Math.max(...dowCount)?'var(--accent)':'var(--accent-light)')+'"></div><span class="bar-label">'+dowLbls[i]+'</span></div>').join('')+'</div></div></div></div>'+
     (topSkills.length?'<div class="panel"><div class="panel-title">Skills practiced most</div>'+topSkills.map(([sk,cnt],i)=>'<div class="activity-row"><span class="activity-rank">'+(i+1)+'</span><span class="activity-name">'+sk+'</span><div class="activity-bar-wrap"><div class="activity-bar-fill" style="width:'+Math.round(cnt/topSkills[0][1]*100)+'%;background:var(--purple)"></div></div><span class="activity-count">'+cnt+'x</span></div>').join('')+'</div>':'');
 }
 
