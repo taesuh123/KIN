@@ -278,6 +278,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .repeat-day{display:flex;align-items:center;justify-content:center;gap:3px;font-size:11.5px;font-weight:700;color:var(--text-muted);background:var(--surface);border:.5px solid var(--border);border-radius:999px;padding:6px 4px;cursor:pointer}
 .repeat-day input{display:none}
 .repeat-day:has(input:checked){background:var(--accent-light);color:var(--accent);border-color:var(--accent-mid)}
+.repeat-end-row{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:10px;font-size:12px;font-weight:700;color:var(--text-muted)}
+.repeat-end-row input{padding:7px 9px;border:.5px solid var(--border-strong);border-radius:var(--r-sm);font:12px 'DM Sans',sans-serif;background:var(--surface);color:var(--text)}
 .no-data{padding:3rem;text-align:center;color:var(--text-light);font-size:14px;line-height:1.8}
 
 /* SKILLS */
@@ -509,7 +511,7 @@ select.form-input{appearance:none}
       </div>
     </div>
     <div class="form-group"><label class="form-label">Notes <span style="font-weight:400;opacity:.6">(e.g. "weight: 225 lbs" or "ran 3.1 miles")</span></label><input class="form-input" id="ev-notes" placeholder="Optional notes..."/></div>
-    <div class="form-group"><label class="form-label">Recurring</label><div class="repeat-box"><label class="toggle-row"><input type="checkbox" id="ev-repeat">Repeat weekly</label><div class="repeat-days" id="repeat-days"></div></div></div>
+    <div class="form-group"><label class="form-label">Recurring</label><div class="repeat-box"><label class="toggle-row"><input type="checkbox" id="ev-repeat">Repeat weekly</label><div class="repeat-days" id="repeat-days"></div><label class="repeat-end-row"><span>End date <span style="font-weight:500;opacity:.65">(optional)</span></span><input type="date" id="ev-repeat-end"></label></div></div>
     <div class="modal-footer"><button class="btn-cancel" onclick="closeModal()">Cancel</button><button class="btn-save" onclick="saveEvent()">Save</button></div>
   </div>
 </div>
@@ -853,6 +855,7 @@ function openModal(date){
   updateDurationLabel();
   document.getElementById('ev-notes').value='';
   document.getElementById('ev-repeat').checked=false;
+  document.getElementById('ev-repeat-end').value='';
   renderRepeatDays([pd(date||fd(today)).getDay()]);
   selEventGType='personal';
   renderEventGTypePills();
@@ -873,7 +876,7 @@ function updateGoalDrop(){renderGoalChecks(selectedGoalIds());}
 function renderRepeatDays(selected=[]){const labels=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];document.getElementById('repeat-days').innerHTML=labels.map((l,i)=>'<label class="repeat-day"><input type="checkbox" class="repeat-day-input" value="'+i+'" '+(selected.includes(i)?'checked':'')+'>'+l+'</label>').join('');}
 function selectedRepeatDays(){return Array.from(document.querySelectorAll('.repeat-day-input:checked')).map(x=>parseInt(x.value));}
 function toggleAllDay(){const all=document.getElementById('ev-allday').checked;['ev-time','ev-end'].forEach(id=>{const el=document.getElementById(id);el.disabled=all;el.style.opacity=all ? .45 : 1;});updateDurationLabel();}
-function repeatDates(start,days,weeks=12){const base=pd(start),out=[];for(let i=0;i<weeks*7;i++){const d=ad(base,i);if(d>=base&&days.includes(d.getDay()))out.push(fd(d));}return[...new Set(out)];}
+function repeatDates(start,days,endDate='',weeks=12){const base=pd(start),limit=endDate?pd(endDate):ad(base,weeks*7-1),out=[];if(limit<base)return[];for(let d=new Date(base);d<=limit;d=ad(d,1)){if(days.includes(d.getDay()))out.push(fd(d));}return[...new Set(out)];}
 function saveEvent(){
   const title=document.getElementById('ev-title').value.trim();
   if(!title){document.getElementById('ev-title').focus();return;}
@@ -885,9 +888,10 @@ function saveEvent(){
   const firstGoal=goals.find(g=>g.id===gids[0]);
   const repeat=document.getElementById('ev-repeat').checked;
   const rdays=selectedRepeatDays();
-  const ev={id:editingId||nextId++,title,cat:selCat,date:document.getElementById('ev-date').value,time:start,end,dur,allDay,notes:document.getElementById('ev-notes').value,gtype:firstGoal?.type||selEventGType,gid:gids[0]||null,gids,skills:[...evSelectedSkills]};
+  const repeatEnd=document.getElementById('ev-repeat-end').value;
+  const ev={id:editingId||nextId++,title,cat:selCat,date:document.getElementById('ev-date').value,time:start,end,dur,allDay,notes:document.getElementById('ev-notes').value,gtype:firstGoal?.type||selEventGType,gid:gids[0]||null,gids,skills:[...evSelectedSkills],repeatEnd:repeat?repeatEnd:''};
   if(editingId){const i=events.findIndex(e=>e.id===editingId);if(i>=0)events[i]=ev;editingId=null;}else events.push(ev);
-  if(repeat&&rdays.length){const root='rep_'+Date.now();ev.repeatRoot=root;repeatDates(ev.date,rdays).filter(ds=>ds!==ev.date).forEach(ds=>events.push({...ev,id:nextId++,date:ds,repeatRoot:root}));}
+  if(repeat&&rdays.length){const root='rep_'+Date.now();ev.repeatRoot=root;repeatDates(ev.date,rdays,repeatEnd).filter(ds=>ds!==ev.date).forEach(ds=>events.push({...ev,id:nextId++,date:ds,repeatRoot:root}));}
   sd('ev',events);closeModal();render();
 }
 
@@ -935,6 +939,7 @@ function editEvent(){
   updateDurationLabel();
   document.getElementById('ev-notes').value=ev.notes;
   document.getElementById('ev-repeat').checked=false;
+  document.getElementById('ev-repeat-end').value=ev.repeatEnd||'';
   renderRepeatDays([pd(ev.date).getDay()]);
   selCat=ev.cat;renderCatPills();
   const linkedGoals=eventGoalTags(ev);
