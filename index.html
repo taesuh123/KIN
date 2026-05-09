@@ -40,6 +40,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .main{display:flex;flex:1;min-height:0;overflow:hidden;width:100%}
 .sidebar{width:clamp(320px,22vw,430px);flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:clamp(18px,2.4dvh,30px) clamp(22px,1.8vw,34px);overflow:hidden;display:flex;flex-direction:column;gap:clamp(16px,2.35dvh,28px)}
 .sidebar-section{min-height:0}
+.sidebar-section+.sidebar-section{padding-top:clamp(2px,.45dvh,6px)}
 .coming-section{flex-shrink:0}
 .sidebar-section-label{font-size:clamp(13px,.9vw,17px);font-weight:700;letter-spacing:.055em;text-transform:uppercase;color:var(--text-light);margin-bottom:clamp(8px,1.1dvh,13px)}
 .mini-cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:clamp(8px,1.4dvh,16px)}
@@ -47,13 +48,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .mini-nav{display:flex;gap:clamp(6px,.8vw,12px)}
 .mini-nav button{width:22px;height:22px;background:none;border:none;border-radius:6px;cursor:pointer;color:var(--text-muted);font-size:clamp(18px,1.2vw,24px);font-weight:700;display:flex;align-items:center;justify-content:center;transition:background .1s;line-height:1}
 .mini-nav button:hover{background:var(--surface2)}
-.mini-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:clamp(1px,.35dvh,4px) clamp(3px,.35vw,7px)}
+.mini-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:clamp(2px,.32dvh,4px) clamp(4px,.35vw,7px);margin-bottom:clamp(12px,1.6dvh,20px)}
 .mini-day-label{font-size:clamp(12px,.8vw,16px);color:var(--text-light);font-weight:700;text-align:center;padding:1px 0 clamp(1px,.35dvh,4px)}
-.mini-day{font-size:clamp(13px,.95vw,18px);color:var(--text-muted);text-align:center;padding:0 2px;border-radius:7px;cursor:pointer;transition:background .1s;position:relative;min-height:clamp(20px,2.6dvh,30px);line-height:clamp(19px,2.3dvh,26px)}
+.mini-day{font-size:clamp(13px,.95vw,18px);color:var(--text-muted);text-align:center;padding:0 2px 5px;border-radius:7px;cursor:pointer;transition:background .1s;position:relative;min-height:clamp(24px,2.9dvh,32px);line-height:clamp(20px,2.45dvh,27px)}
 .mini-day:hover{background:var(--surface2);color:var(--text)}
 .mini-day.today{background:var(--accent);color:#fff;font-weight:700;border-radius:8px}
 .mini-day.other-month{color:var(--text-light)}
-.mini-day.has-event::after{content:'';display:block;width:5px;height:5px;background:var(--accent-mid);border-radius:50%;margin:0 auto}
+.mini-day.has-event::after{content:'';position:absolute;left:50%;bottom:1px;transform:translateX(-50%);width:5px;height:5px;background:var(--accent-mid);border-radius:50%}
 .category-list{display:flex;flex-direction:column;gap:clamp(8px,1.3dvh,16px)}
 .category-item{display:flex;align-items:center;gap:12px;padding:0 10px;border-radius:var(--r-sm);font-size:clamp(15px,1.05vw,21px);font-weight:500}
 .cat-dot{width:13px;height:13px;border-radius:50%;flex-shrink:0}
