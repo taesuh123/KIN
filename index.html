@@ -135,7 +135,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .page-title span{color:var(--accent);font-style:italic}
 .goal-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
 .stat-card{background:var(--surface);border-radius:var(--r);border:.5px solid var(--border-strong);padding:1rem 1.25rem}
-.stat-label{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-light);margin-bottom:6px}
+.stat-label{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text);margin-bottom:6px}
 .stat-num{font-family:'DM Serif Display',serif;font-size:32px;color:var(--text);line-height:1}
 .stat-sub{font-size:12px;color:var(--text-muted);margin-top:4px}
 .stat-bar{height:3px;background:var(--surface2);border-radius:2px;margin-top:10px;overflow:hidden}
@@ -170,6 +170,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .habits-top-grid{display:grid;grid-template-columns:minmax(260px,1fr) minmax(300px,.95fr) minmax(170px,.55fr);gap:1.25rem;align-items:stretch}
 .panel{background:var(--surface);border-radius:var(--r);border:.5px solid var(--border-strong);padding:1.25rem}
 .panel-title{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text);margin-bottom:1rem}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:1rem}
+.panel-head .panel-title{margin-bottom:0}
+.activity-ticker{font-size:11px;font-weight:800;border-radius:999px;padding:4px 8px;white-space:nowrap}
+.activity-ticker.up{background:var(--accent-light);color:var(--accent)}
+.activity-ticker.down{background:var(--danger-light);color:var(--danger)}
+.activity-ticker.flat{background:var(--surface2);color:var(--text-muted)}
 .streak-card{background:var(--surface);border:.5px solid var(--border-strong);border-radius:var(--r);padding:1.25rem;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:.9rem;text-align:center;min-height:100%}
 .streak-label{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text)}
 .streak-fire{font-size:38px;line-height:1}
@@ -983,8 +989,15 @@ function renderHabits(){
   const heatData={};events.forEach(ev=>{heatData[ev.date]=(heatData[ev.date]||0)+1;});
   const maxH=Math.max(...Object.values(heatData),1);
   function hc(c){if(!c)return'';const p=c/maxH;return p<=.25?'l1':p<=.5?'l2':p<=.75?'l3':'l4';}
-  const heatWeeks=10;
-  const alignedStart=ad(today,-(today.getDay()+heatWeeks*7-1));
+  const currentStart=ad(today,-29),previousStart=ad(today,-59),previousEnd=ad(today,-30);
+  const currentActivity=events.filter(ev=>pd(ev.date)>=currentStart&&pd(ev.date)<=today).length;
+  const previousActivity=events.filter(ev=>pd(ev.date)>=previousStart&&pd(ev.date)<=previousEnd).length;
+  const activityDelta=currentActivity-previousActivity;
+  const activityPct=previousActivity?Math.round(activityDelta/previousActivity*100):(currentActivity?100:0);
+  const tickerClass=activityDelta>0?'up':activityDelta<0?'down':'flat';
+  const tickerText=(activityDelta>0?'+':'')+activityPct+'%';
+  const heatWeeks=5;
+  const alignedStart=ad(today,-(today.getDay()+(heatWeeks-1)*7));
   const heatDays=Array.from({length:heatWeeks*7},(_,i)=>ad(alignedStart,i));
   const heatRows=[];for(let w=0;w<heatWeeks;w++)heatRows.push(heatDays.slice(w*7,(w+1)*7));
 
@@ -999,7 +1012,7 @@ function renderHabits(){
   el.innerHTML=
     '<div class="page-header" style="margin-bottom:0"><div class="page-title">My <span>Habits</span></div></div>'+
     '<div class="habits-top-grid">'+
-    '<div class="panel"><div class="panel-title">Activity &mdash; last 10 weeks</div>'+
+    '<div class="panel"><div class="panel-head"><div class="panel-title">Activity &mdash; last month</div><div class="activity-ticker '+tickerClass+'" title="Compared with the previous 30 days">'+tickerText+'</div></div>'+
     '<div class="habit-heatmap"><div class="habit-heatmap-labels"><div class="habit-heatmap-label">&nbsp;</div><div class="habit-heatmap-label">Mon</div><div class="habit-heatmap-label">&nbsp;</div><div class="habit-heatmap-label">Wed</div><div class="habit-heatmap-label">&nbsp;</div><div class="habit-heatmap-label">Fri</div><div class="habit-heatmap-label">&nbsp;</div></div>'+
     '<div class="habit-heatmap-grid">'+[0,1,2,3,4,5,6].map(dow=>'<div class="habit-heatmap-row">'+heatRows.map(week=>{const day=week[dow];const ds=fd(day);const cnt=heatData[ds]||0;const fut=day>today;return'<div class="heatmap-cell '+(fut?'':hc(cnt))+'" style="'+(fut?'opacity:.2':'')+';" title="'+ds+': '+cnt+' event'+(cnt!==1?'s':'')+'"></div>';}).join('')+'</div>').join('')+
     '</div></div>'+
