@@ -1222,7 +1222,7 @@ function openGoalModal(type,editId){normalizeGoalTypes();editingGoalId=editId||n
 function closeGoalModal(){document.getElementById('goal-modal-bg').classList.remove('open');}
 function renderGTypePills(){normalizeGoalTypes();const c=document.getElementById('gtype-pills');c.innerHTML='';goalTypes.forEach(t=>{const p=document.createElement('div');p.className='gtype-pill'+(selGType===t.id?' selected':'');p.style.background=t.bg;p.style.color=t.color;p.textContent=t.label;p.onclick=()=>{selGType=t.id;renderGTypePills();};c.appendChild(p);});}
 function saveGoal(){const title=document.getElementById('goal-title').value.trim();if(!title){document.getElementById('goal-title').focus();return;}const g={id:editingGoalId||nextGId++,title,type:GTYPES[selGType]?selGType:'personal',desc:document.getElementById('goal-desc').value,done:editingGoalId?goals.find(x=>x.id===editingGoalId)?.done||false:false};if(editingGoalId){const i=goals.findIndex(x=>x.id===editingGoalId);if(i>=0)goals[i]=g;editingGoalId=null;}else goals.push(g);persistState();closeGoalModal();renderGoals();if(currentPage==='progress')renderProgress();}
-function deleteGoalFromModal(){if(!editingGoalId)return;const g=goals.find(x=>x.id===editingGoalId);if(!g||!confirm('Delete "'+g.title+'"? Events will stay, but this goal link will be removed.'))return;goals=goals.filter(x=>x.id!==editingGoalId);events=events.map(ev=>{const gids=eventGoalIds(ev).filter(id=>id!==editingGoalId);return{...ev,gids,gid:gids[0]||null,gtype:(goals.find(gg=>gg.id===gids[0])?.type)||''};});persistState();editingGoalId=null;closeGoalModal();renderGoals();render();}
+function deleteGoalFromModal(){if(!editingGoalId)return;const goalId=editingGoalId,g=goals.find(x=>x.id===goalId);if(!g)return;openConfirmModal('Delete '+g.title+'?','Events will stay saved, but links to this goal will be removed.',()=>{goals=goals.filter(x=>x.id!==goalId);events=events.map(ev=>{const gids=eventGoalIds(ev).filter(id=>id!==goalId);return{...ev,gids,gid:gids[0]||null,gtype:(goals.find(gg=>gg.id===gids[0])?.type)||''};});persistState();editingGoalId=null;closeGoalModal();renderGoals();render();});}
 
 /* ── DETAIL ── */
 function showDetail(e,id){
@@ -1247,7 +1247,7 @@ function showDetail(e,id){
   det.style.left=Math.max(8,x)+'px';det.style.top=Math.max(8,y)+'px';
 }
 function closeDetail(){document.getElementById('event-detail').classList.remove('open');}
-function deleteEvent(){events=events.filter(e=>e.id!==activeEvId);persistState();closeDetail();render();}
+function deleteEvent(){const ev=events.find(e=>e.id===activeEvId);if(!ev)return;openConfirmModal('Delete '+ev.title+'?','This calendar event will be deleted. Linked goals will stay saved.',()=>{events=events.filter(e=>e.id!==activeEvId);persistState();closeDetail();render();});}
 function editEvent(){
   const ev=events.find(e=>e.id===activeEvId);if(!ev)return;
   closeDetail();editingId=ev.id;
