@@ -361,6 +361,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .btn-cancel:hover{background:var(--surface2)}
 .btn-save{padding:7px 18px;background:var(--accent);color:#fff;border:none;border-radius:var(--r-sm);font-size:13.5px;font-weight:500;font-family:'DM Sans',sans-serif;cursor:pointer;transition:opacity .15s}
 .btn-save:hover{opacity:.88}
+.btn-danger{padding:7px 18px;background:#993C1D;color:#fff;border:none;border-radius:var(--r-sm);font-size:13.5px;font-weight:500;font-family:'DM Sans',sans-serif;cursor:pointer;transition:opacity .15s}
+.btn-danger:hover{opacity:.88}
+.confirm-copy{color:var(--text-muted);font-size:14px;line-height:1.45;margin-top:-2px}
 .cat-pills{display:flex;gap:6px;flex-wrap:wrap}
 .cat-pill{padding:4px 10px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1.5px solid transparent;transition:all .12s;opacity:.65}
 .cat-pill.selected{opacity:1;border-color:currentColor}
@@ -632,6 +635,15 @@ select.form-input{appearance:none}
   </div>
 </div>
 
+<!-- CONFIRM MODAL -->
+<div class="modal-bg" id="confirm-modal-bg" onclick="if(event.target===this)closeConfirmModal()">
+  <div class="modal">
+    <div class="modal-title" id="confirm-title">Confirm</div>
+    <div class="confirm-copy" id="confirm-copy"></div>
+    <div class="modal-footer"><button class="btn-cancel" onclick="closeConfirmModal()">Cancel</button><button class="btn-danger" id="confirm-action-btn">Delete</button></div>
+  </div>
+</div>
+
 <!-- EVENT DETAIL -->
 <div class="event-detail" id="event-detail">
   <div class="detail-cat-bar" id="detail-bar"></div>
@@ -821,6 +833,7 @@ let nextId=Math.max(...events.map(e=>e.id),0)+1;
 let nextGId=Math.max(...goals.map(g=>g.id),0)+1;
 let firebaseUser=null;
 let cloudReady=false;
+let confirmAction=null;
 
 function currentAppState(){return{goals,events,goalTypes};}
 function saveLocalState(){sd('goals',goals);sd('ev',events);sd('goal_types',goalTypes);}
@@ -920,7 +933,9 @@ function addGoalType(){if(goalTypes.length>=4){alert('You can have up to four go
 function renameGoalType(e,id){e.stopPropagation();const t=goalTypes.find(x=>x.id===id);if(!t||t.locked)return;editingGoalTypeId=id;document.getElementById('goal-type-modal-title').textContent='Edit '+t.label;document.getElementById('goal-type-title').value=t.label;document.getElementById('goal-type-modal-bg').classList.add('open');setTimeout(()=>document.getElementById('goal-type-title').focus(),50);}
 function closeGoalTypeModal(){editingGoalTypeId=null;document.getElementById('goal-type-modal-bg').classList.remove('open');}
 function saveGoalType(){const label=document.getElementById('goal-type-title').value.trim();if(!label){document.getElementById('goal-type-title').focus();return;}if(editingGoalTypeId==='__new__'){if(goalTypes.length>=4){closeGoalTypeModal();return;}let id=slugGoalType(label);while(goalTypes.some(t=>t.id===id))id+='-'+Math.floor(Math.random()*99);const color=GOAL_TYPE_COLORS[goalTypes.length%GOAL_TYPE_COLORS.length];goalTypes.push({id,label,...color});}else{const t=goalTypes.find(x=>x.id===editingGoalTypeId);if(!t||t.locked){closeGoalTypeModal();return;}t.label=label;}normalizeGoalTypes();persistState();closeGoalTypeModal();renderGoals();if(currentPage==='progress')renderProgress();}
-function deleteGoalType(e,id){e.stopPropagation();const t=goalTypes.find(x=>x.id===id);if(!t||t.locked)return;if(!confirm('Delete the '+t.label+' goal type? Goals in it will move to Personal.'))return;goals=goals.map(g=>g.type===id?{...g,type:'personal'}:g);events=events.map(ev=>({...ev,gtype:ev.gtype===id?'personal':ev.gtype}));goalTypes=goalTypes.filter(x=>x.id!==id);normalizeGoalTypes();persistState();renderGoals();render();}
+function openConfirmModal(title,copy,action,label='Delete'){confirmAction=action;document.getElementById('confirm-title').textContent=title;document.getElementById('confirm-copy').textContent=copy;const btn=document.getElementById('confirm-action-btn');btn.textContent=label;btn.onclick=()=>{if(confirmAction)confirmAction();closeConfirmModal();};document.getElementById('confirm-modal-bg').classList.add('open');}
+function closeConfirmModal(){confirmAction=null;document.getElementById('confirm-modal-bg').classList.remove('open');}
+function deleteGoalType(e,id){e.stopPropagation();const t=goalTypes.find(x=>x.id===id);if(!t||t.locked)return;openConfirmModal('Delete '+t.label+'?','Goals in this type will move to Personal. Your events will stay saved.',()=>{goals=goals.map(g=>g.type===id?{...g,type:'personal'}:g);events=events.map(ev=>({...ev,gtype:ev.gtype===id?'personal':ev.gtype}));goalTypes=goalTypes.filter(x=>x.id!==id);normalizeGoalTypes();persistState();renderGoals();render();});}
 
 /* ── SKILLS UI ── */
 function filterSkills(){
@@ -1267,7 +1282,7 @@ document.getElementById('ev-end').addEventListener('input',updateDurationLabel);
 document.getElementById('ev-title').addEventListener('blur',()=>autoSelectSkills());
 document.getElementById('ev-title').addEventListener('input',()=>autoSelectSkills(true));
 document.getElementById('ev-notes').addEventListener('input',()=>autoSelectSkills(true));
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeDetail();closeGoalModal();closeGoalTypeModal();closeDayModal();}if(e.key==='Enter'&&document.getElementById('modal-bg').classList.contains('open')&&e.target.tagName!=='SELECT'&&e.target.id!=='skills-search')saveEvent();if(e.key==='Enter'&&document.getElementById('goal-modal-bg').classList.contains('open')&&e.target.tagName!=='SELECT')saveGoal();if(e.key==='Enter'&&document.getElementById('goal-type-modal-bg').classList.contains('open'))saveGoalType();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeDetail();closeGoalModal();closeGoalTypeModal();closeDayModal();closeConfirmModal();}if(e.key==='Enter'&&document.getElementById('modal-bg').classList.contains('open')&&e.target.tagName!=='SELECT'&&e.target.id!=='skills-search')saveEvent();if(e.key==='Enter'&&document.getElementById('goal-modal-bg').classList.contains('open')&&e.target.tagName!=='SELECT')saveGoal();if(e.key==='Enter'&&document.getElementById('goal-type-modal-bg').classList.contains('open'))saveGoalType();});
 document.addEventListener('click',e=>{const det=document.getElementById('event-detail');if(det.classList.contains('open')&&!det.contains(e.target))closeDetail();});
 
 render();
