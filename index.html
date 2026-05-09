@@ -169,6 +169,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
 .panel{background:var(--surface);border-radius:var(--r);border:.5px solid var(--border-strong);padding:1.25rem}
 .panel-title{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text);margin-bottom:1rem}
+.streak-card{background:var(--surface);border:.5px solid var(--border-strong);border-radius:var(--r);padding:1rem 1.25rem;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:1rem}
+.streak-label{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text)}
+.streak-fire{font-size:34px;line-height:1}
+.streak-number{font-family:'DM Serif Display',serif;font-size:44px;line-height:.9;color:var(--text)}
+.streak-days{font-size:14px;font-weight:700;color:var(--text-muted);margin-top:2px}
+.streak-best{font-size:12px;font-weight:700;color:var(--text-light);text-align:right}
 .heatmap-cell{width:13px;height:13px;border-radius:2px;background:var(--surface2);cursor:default;display:inline-block}
 .heatmap-cell:hover{transform:scale(1.25)}
 .heatmap-cell.l1{background:#C8E6C9}
@@ -954,6 +960,12 @@ function autoSelectSkills(force=false){if(!force&&evSelectedSkills.length)return
 function renderHabits(){
   const el=document.getElementById('habits-content');
   if(!events.length){el.innerHTML='<div class="no-data">No data yet.<br>Add events to your calendar and your habit patterns will appear here automatically.</div>';return;}
+  const eventDays=[...new Set(events.map(ev=>ev.date))].sort();
+  const eventDaySet=new Set(eventDays);
+  let currentStreak=0,streakDay=new Date(today);
+  while(eventDaySet.has(fd(streakDay))){currentStreak++;streakDay=ad(streakDay,-1);}
+  let bestStreak=0,run=0,prev=null;
+  eventDays.forEach(ds=>{const d=pd(ds);if(prev&&Math.round((d-prev)/864e5)===1)run++;else run=1;bestStreak=Math.max(bestStreak,run);prev=d;});
   const titleCount={};events.forEach(ev=>{const t=ev.title.toLowerCase().trim();titleCount[t]=(titleCount[t]||0)+1;});
   const top=Object.entries(titleCount).sort((a,b)=>b[1]-a[1]).slice(0,8);
   const catCount={},catTime={};events.forEach(ev=>{catCount[ev.cat]=(catCount[ev.cat]||0)+1;catTime[ev.cat]=(catTime[ev.cat]||0)+(ev.dur||60);});
@@ -985,6 +997,7 @@ function renderHabits(){
 
   el.innerHTML=
     '<div class="page-header" style="margin-bottom:0"><div class="page-title">My <span>Habits</span></div></div>'+
+    '<div class="streak-card"><div class="streak-label">Current Streak</div><div style="display:flex;align-items:center;gap:1rem"><div class="streak-fire">&#128293;</div><div><div class="streak-number">'+currentStreak+'</div><div class="streak-days">day'+(currentStreak!==1?'s':'')+'</div></div></div><div class="streak-best">Best streak: '+bestStreak+' day'+(bestStreak!==1?'s':'')+'</div></div>'+
     '<div class="two-col">'+
     '<div class="panel"><div class="panel-title">Activity &mdash; last 10 weeks</div>'+
     '<div class="habit-heatmap"><div class="habit-heatmap-labels"><div class="habit-heatmap-label">&nbsp;</div><div class="habit-heatmap-label">Mon</div><div class="habit-heatmap-label">&nbsp;</div><div class="habit-heatmap-label">Wed</div><div class="habit-heatmap-label">&nbsp;</div><div class="habit-heatmap-label">Fri</div><div class="habit-heatmap-label">&nbsp;</div></div>'+
