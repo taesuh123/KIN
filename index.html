@@ -33,9 +33,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .nav-actions{display:flex;gap:8px;align-items:center}
 .btn-primary{display:flex;align-items:center;gap:8px;padding:clamp(12px,1.3dvh,17px) clamp(18px,1.55vw,28px);background:var(--accent);color:#fff;border:none;border-radius:11px;font-size:clamp(19px,1.35vw,26px);font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:opacity .15s;line-height:1}
 .btn-primary:hover{opacity:.88}
-.login-btn{border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:11px;padding:clamp(10px,1.1dvh,14px) clamp(13px,1vw,18px);font:700 clamp(13px,.95vw,16px)/1 'DM Sans',sans-serif;cursor:pointer;white-space:nowrap}
+.login-btn{border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:12px;padding:clamp(13px,1.35dvh,18px) clamp(20px,1.65vw,30px);font:700 clamp(18px,1.25vw,24px)/1 'DM Sans',sans-serif;cursor:pointer;white-space:nowrap}
 .login-btn.signed-in{background:var(--accent-light);border-color:transparent;color:var(--accent)}
-.login-status{font-size:11px;color:var(--text-light);font-weight:700;max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toolbar-add{margin-left:8px}
 .page{display:none;flex:1;overflow:hidden}
 .page.active{display:flex}
 
@@ -366,6 +366,7 @@ select.form-input{appearance:none}
   .nav-tab{white-space:nowrap}
   .nav-tab{font-size:15px;border-width:2px;border-radius:10px;padding:8px 9px}
   .btn-primary{font-size:15px;padding:10px 12px;border-radius:9px}
+  .login-btn{font-size:15px;padding:10px 12px;border-radius:9px}
   .page.active{display:flex}
   .main{display:flex}
   .sidebar{width:270px;border-right:1px solid var(--border);border-bottom:none;display:flex;flex-direction:column;gap:10px;padding:13px 15px;overflow:hidden}
@@ -401,6 +402,7 @@ select.form-input{appearance:none}
   .nav-brand{font-size:19px}
   .nav-tab{font-size:13px;padding:7px 7px}
   .btn-primary{font-size:13px;padding:8px 9px}
+  .login-btn{font-size:13px;padding:8px 9px}
   .sidebar{width:230px;gap:7px;padding:10px 12px}
   .sidebar-section-label{font-size:10px;margin-bottom:4px}
   .mini-cal-header{margin-bottom:4px}
@@ -457,9 +459,7 @@ select.form-input{appearance:none}
     <button class="nav-tab" onclick="switchPage('agent')">Agent</button>
   </div>
   <div class="nav-actions">
-    <span class="login-status" id="login-status">Local only</span>
     <button class="login-btn" id="login-btn" onclick="openLoginModal()">Login</button>
-    <button class="btn-primary" id="nav-btn" onclick="navClick()">+ Add Event</button>
   </div>
 </nav>
 
@@ -498,6 +498,7 @@ select.form-input{appearance:none}
         <button class="view-btn active" id="vbtn-month" onclick="switchView('month')">Month</button>
         <button class="view-btn" id="vbtn-week" onclick="switchView('week')">Week</button>
       </div>
+      <button class="btn-primary toolbar-add" id="nav-btn" onclick="navClick()">+ Add Event</button>
     </div>
     <div id="month-view" class="month-view"></div>
     <div id="week-view" class="week-view" style="display:none"></div>
@@ -764,11 +765,11 @@ function saveLocalState(){sd('goals',goals);sd('ev',events);}
 async function saveCloudState(){if(firebaseUser&&window.goaltrackFirebase?.enabled){try{await window.goaltrackFirebase.saveState(currentAppState());}catch(err){console.warn('Firebase save failed',err);}}}
 function persistState(){saveLocalState();saveCloudState();}
 function updateLoginUI(){
-  const api=window.goaltrackFirebase,btn=document.getElementById('login-btn'),status=document.getElementById('login-status'),copy=document.getElementById('login-copy'),login=document.getElementById('google-login-btn'),logout=document.getElementById('google-logout-btn');
-  if(!btn||!status)return;
-  if(!api?.enabled){status.textContent='Local only';btn.textContent='Login';btn.disabled=false;if(copy)copy.textContent='Add your Firebase web app config in index.html to enable Google Sign-In and cloud saves.';if(login){login.textContent='Firebase config needed';login.disabled=true;}if(logout)logout.style.display='none';return;}
-  if(firebaseUser){status.textContent='Cloud saved';btn.textContent='Account';btn.classList.add('signed-in');if(copy)copy.textContent='Signed in as '+(firebaseUser.email||firebaseUser.displayName||'Google user')+'. Your goals and events are saved to Firebase.';if(login)login.style.display='none';if(logout)logout.style.display='';}
-  else{status.textContent='Local only';btn.textContent='Login';btn.classList.remove('signed-in');if(copy)copy.textContent='Sign in with Google to save your GoalTrack data to Firebase and access it later.';if(login){login.style.display='';login.disabled=false;login.textContent='Continue with Google';}if(logout)logout.style.display='none';}
+  const api=window.goaltrackFirebase,btn=document.getElementById('login-btn'),copy=document.getElementById('login-copy'),login=document.getElementById('google-login-btn'),logout=document.getElementById('google-logout-btn');
+  if(!btn)return;
+  if(!api?.enabled){btn.textContent='Login';btn.disabled=false;if(copy)copy.textContent='Add your Firebase web app config in index.html to enable Google Sign-In and cloud saves.';if(login){login.textContent='Firebase config needed';login.disabled=true;}if(logout)logout.style.display='none';return;}
+  if(firebaseUser){btn.textContent='Account';btn.classList.add('signed-in');if(copy)copy.textContent='Signed in as '+(firebaseUser.email||firebaseUser.displayName||'Google user')+'. Your goals and events are saved to Firebase.';if(login)login.style.display='none';if(logout)logout.style.display='';}
+  else{btn.textContent='Login';btn.classList.remove('signed-in');if(copy)copy.textContent='Sign in with Google to save your GoalTrack data to Firebase and access it later.';if(login){login.style.display='';login.disabled=false;login.textContent='Continue with Google';}if(logout)logout.style.display='none';}
 }
 function openLoginModal(){updateLoginUI();document.getElementById('login-modal-bg').classList.add('open');}
 function closeLoginModal(){document.getElementById('login-modal-bg').classList.remove('open');}
