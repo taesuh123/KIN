@@ -388,14 +388,26 @@ select.form-input{appearance:none}
   .progress-top,.action-grid{grid-template-columns:1fr}
 }
 @media (max-width:560px){
-  body{overflow:auto;height:auto;min-height:100vh}
-  .nav{height:auto;padding:.75rem 1rem;gap:.75rem;flex-wrap:wrap}
-  .nav-tabs{order:3;width:100%}
-  .page.active{display:block}
-  .main{display:block}
-  .sidebar{width:100%;border-right:none;border-bottom:.5px solid var(--border-strong);padding:1rem 1.25rem;gap:1.25rem;overflow:visible}
-  .cal-content,.content-page,.goals-page{overflow:visible}
+  .nav{height:66px;padding:0 10px}
   .nav-brand{font-size:19px}
+  .nav-tab{font-size:13px;padding:7px 7px}
+  .btn-primary{font-size:13px;padding:8px 9px}
+  .sidebar{width:230px;gap:7px;padding:10px 12px}
+  .sidebar-section-label{font-size:10px;margin-bottom:4px}
+  .mini-cal-header{margin-bottom:4px}
+  .mini-cal-title{font-size:15px}
+  .mini-grid{gap:0 2px;margin-bottom:1px}
+  .mini-day-label{font-size:10px}
+  .mini-day{font-size:11px;min-height:17px;line-height:15px;padding-bottom:3px}
+  .mini-day.has-event::after{width:3.5px;height:3.5px}
+  .category-list{gap:4px}
+  .category-item{font-size:12.5px;gap:7px}
+  .cat-dot{width:9px;height:9px}
+  .cat-count{font-size:11px;padding:1px 6px}
+  .upcoming-list{gap:4px}
+  .upcoming-item{padding:6px 8px}
+  .upcoming-title{font-size:12px}
+  .upcoming-meta{font-size:11px}
   .page-title{font-size:24px}
   .month-day-lbl{padding-left:4px;font-size:10px}
   .cell-event{font-size:9px;padding:1px 4px;min-height:14px}
@@ -403,6 +415,15 @@ select.form-input{appearance:none}
   .ai-grid{grid-template-columns:1fr}
   .ai-head{display:block}
   .ai-badge{display:inline-block;margin-top:.75rem}
+}
+@media (max-width:420px){
+  body{overflow:auto;height:auto;min-height:100vh}
+  .nav{height:auto;padding:.75rem 1rem;gap:.75rem;flex-wrap:wrap}
+  .nav-tabs{order:3;width:100%}
+  .page.active{display:block}
+  .main{display:block}
+  .sidebar{width:100%;border-right:none;border-bottom:.5px solid var(--border-strong);padding:1rem 1.25rem;gap:1.25rem;overflow:visible}
+  .cal-content,.content-page,.goals-page{overflow:visible}
 }
 </style>
 </head>
