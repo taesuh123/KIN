@@ -2,6 +2,7 @@ const crypto = require("crypto");
 
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "goaltrack-15e35";
+const AGENT_TESTER_EMAIL = (process.env.AGENT_TESTER_EMAIL || "taesuh123@gmail.com").toLowerCase();
 let certCache = { expires: 0, certs: null };
 
 function send(res, status, body) {
@@ -114,6 +115,9 @@ module.exports = async function handler(req, res) {
   try {
     const token = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
     const user = await verifyFirebaseToken(token);
+    if ((user.email || "").toLowerCase() !== AGENT_TESTER_EMAIL) {
+      return send(res, 403, { error: "The personal agent is only available to the test account right now." });
+    }
     const payload = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
     const { question, context = {}, history = [] } = payload;
     if (!question || !String(question).trim()) return send(res, 400, { error: "Question is required." });

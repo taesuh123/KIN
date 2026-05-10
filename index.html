@@ -504,7 +504,7 @@ select.form-input{appearance:none}
     <button class="nav-tab" onclick="switchPage('goals')">Goals</button>
     <button class="nav-tab" onclick="switchPage('habits')">Habits</button>
     <button class="nav-tab" onclick="switchPage('progress')">Progress</button>
-    <button class="nav-tab" onclick="switchPage('agent')">Agent</button>
+    <button class="nav-tab" id="agent-nav-tab" onclick="switchPage('agent')" style="display:none">Agent</button>
   </div>
   <div class="nav-actions">
     <button class="login-btn" id="login-btn" onclick="openLoginModal()">Login</button>
@@ -795,6 +795,7 @@ const DEFAULT_SKILLS=[
 ];
 
 const today=new Date();today.setHours(0,0,0,0);
+const AGENT_TESTER_EMAIL='taesuh123@gmail.com';
 let viewDate=new Date(today),miniDate=new Date(today),currentView='month',currentPage='calendar';
 let activeEvId=null,editingId=null,editingGoalId=null,editingGoalTypeId=null,selCat='work',selGType='personal',selEventGType='personal';
 let evSelectedSkills=[];
@@ -845,10 +846,13 @@ function persistState(){saveLocalState();saveCloudState();}
 function updateLoginUI(){
   const api=window.goaltrackFirebase,btn=document.getElementById('login-btn'),copy=document.getElementById('login-copy'),login=document.getElementById('google-login-btn'),logout=document.getElementById('google-logout-btn');
   if(!btn)return;
+  updateAgentAccessUI();
   if(!api?.enabled){btn.textContent='Login';btn.disabled=false;if(copy)copy.textContent='Add your Firebase web app config in index.html to enable Google Sign-In and cloud saves.';if(login){login.textContent='Firebase config needed';login.disabled=true;}if(logout)logout.style.display='none';return;}
   if(firebaseUser){btn.textContent='Account';btn.classList.add('signed-in');if(copy)copy.textContent='Signed in as '+(firebaseUser.email||firebaseUser.displayName||'Google user')+'. Your goals and events are saved to Firebase.';if(login)login.style.display='none';if(logout)logout.style.display='';}
   else{btn.textContent='Login';btn.classList.remove('signed-in');if(copy)copy.textContent='Sign in with Google to save your GoalTrack data to Firebase and access it later.';if(login){login.style.display='';login.disabled=false;login.textContent='Continue with Google';}if(logout)logout.style.display='none';}
 }
+function canUseAgent(){return (firebaseUser?.email||'').toLowerCase()===AGENT_TESTER_EMAIL;}
+function updateAgentAccessUI(){const tab=document.getElementById('agent-nav-tab');if(tab)tab.style.display=canUseAgent()?'':'none';if(currentPage==='agent'&&!canUseAgent())switchPage('calendar');}
 function openLoginModal(){updateLoginUI();document.getElementById('login-modal-bg').classList.add('open');}
 function closeLoginModal(){document.getElementById('login-modal-bg').classList.remove('open');}
 async function handleGoogleLogin(){try{await window.goaltrackFirebase?.signIn?.();}catch(err){alert('Google sign-in failed: '+(err.message||err));}}
@@ -880,7 +884,7 @@ function onGoalTrackFirebaseUnavailable(){updateLoginUI();}
 updateLoginUI();
 
 /* ── PAGE SWITCHING ── */
-function switchPage(p){currentPage=p;document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));document.querySelectorAll('.nav-tab').forEach((el,i)=>{const pgs=['calendar','goals','habits','progress','agent'];el.classList.toggle('active',pgs[i]===p);});document.getElementById('page-'+p).classList.add('active');const btn=document.getElementById('nav-btn');if(p==='calendar'){btn.textContent='+ Add Event';btn.style.display='';}else btn.style.display='none';if(p==='goals')renderGoals();else if(p==='habits')renderHabits();else if(p==='progress')renderProgress();else if(p==='agent')renderAgentPage();else render();}
+function switchPage(p){if(p==='agent'&&!canUseAgent())p='calendar';currentPage=p;document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));document.querySelectorAll('.nav-tab').forEach(el=>el.classList.toggle('active',el.getAttribute('onclick')?.includes("'"+p+"'")));document.getElementById('page-'+p).classList.add('active');const btn=document.getElementById('nav-btn');if(p==='calendar'){btn.textContent='+ Add Event';btn.style.display='';}else btn.style.display='none';if(p==='goals')renderGoals();else if(p==='habits')renderHabits();else if(p==='progress')renderProgress();else if(p==='agent')renderAgentPage();else render();}
 function navClick(){if(currentPage==='calendar')openModal();}
 
 /* ── CALENDAR ── */

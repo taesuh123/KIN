@@ -27,6 +27,7 @@ In Vercel, add these Environment Variables:
 OPENAI_API_KEY=your OpenAI API key
 OPENAI_MODEL=gpt-4o-mini
 FIREBASE_PROJECT_ID=goaltrack-15e35
+AGENT_TESTER_EMAIL=taesuh123@gmail.com
 ```
 
 `OPENAI_MODEL` controls cost. Keep it set to `gpt-4o-mini` for the cheaper model. If you want a stronger but usually more expensive model later, change only that environment variable.
