@@ -4,6 +4,7 @@ const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "goaltrack-15e35"
 const CREATOR_EMAILS = (process.env.CREATOR_EMAIL || "tae.suh123@gmail.com,taesuh123@gmail.com").split(",").map(email => email.trim()).filter(Boolean);
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "Goaltrack <onboarding@resend.dev>";
 const RESEND_REPLY_TO = process.env.RESEND_REPLY_TO || "no-reply@goaltrack.app";
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 let certCache = { expires: 0, certs: null };
 
 function send(res, status, body) {
@@ -94,7 +95,55 @@ function habitLines(appState, todaysEvents) {
   return ["- No recurring habit pattern yet."];
 }
 
-function buildBriefing({ appState, settings, dateInfo }) {
+function snapshotContext({ appState, dateInfo, events }) {
+  return {
+    date: dateInfo.iso,
+    profile: appState.userProfile || {},
+    todayEvents: events.slice(0, 12).map(e => ({ title: e.title, time: timeRange(e), category: e.category })),
+    activeGoals: (appState.goals || []).filter(g => !g.done).slice(0, 12).map(g => ({ title: g.title, type: g.type || g.category, description: g.desc || g.description || "" })),
+    habitSignals: habitLines(appState, events)
+  };
+}
+
+async function resolvePersonalMessage(prompt, { appState, settings, dateInfo, events }) {
+  const cleanPrompt = String(prompt || "").trim();
+  if (!cleanPrompt || !settings.messageOnlineEnabled) return cleanPrompt;
+  if (!process.env.OPENAI_API_KEY) return cleanPrompt;
+  const input = [
+    {
+      role: "system",
+      content: [{
+        type: "input_text",
+        text: "You write the Personal message section for a Goaltrack Daily Snapshot email. Use the user's prompt and Goaltrack context only. Stay encouraging, practical, and appropriate for a daily briefing. If the prompt asks for a verse, quote or paraphrase a short relevant verse with a reference and one sentence of motivation. Keep the final message under 65 words. Return only the message text."
+      }]
+    },
+    {
+      role: "user",
+      content: [{
+        type: "input_text",
+        text: JSON.stringify({ prompt: cleanPrompt, context: snapshotContext({ appState, dateInfo, events }) })
+      }]
+    }
+  ];
+  try {
+    const resp = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ model: OPENAI_MODEL, input })
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) return cleanPrompt;
+    const text = data.output_text || (data.output || []).flatMap(item => item.content || []).map(part => part.text || "").join("\n").trim();
+    return text || cleanPrompt;
+  } catch {
+    return cleanPrompt;
+  }
+}
+
+async function buildBriefing({ appState, settings, dateInfo }) {
   const name = appState.userProfile?.name || settings.email?.split("@")[0] || "there";
   const todaysEvents = (appState.events || []).filter(e => e.date === dateInfo.iso).sort((a, b) => (a.time || "00:00").localeCompare(b.time || "00:00"));
   const goals = appState.goals || [];
@@ -121,8 +170,9 @@ function buildBriefing({ appState, settings, dateInfo }) {
   }
 
   if (settings.includeMessageToSelf && settings.messageToSelf) {
+    const personalMessage = await resolvePersonalMessage(settings.messageToSelf, { appState, settings, dateInfo, events: todaysEvents });
     lines.push("Personal message:");
-    lines.push(settings.messageToSelf);
+    lines.push(personalMessage);
     lines.push("");
   }
 
@@ -166,7 +216,7 @@ module.exports = async function handler(req, res) {
     const settings = payload.settings || {};
     const email = settings.email || user.email;
     const dateInfo = dateParts(settings.timezone || appState.userProfile?.timezone || "America/New_York");
-    const text = buildBriefing({ appState, settings, dateInfo });
+    const text = await buildBriefing({ appState, settings, dateInfo });
     const sent = await sendEmail({ to: email, subject: `Goaltrack Daily Snapshot Test - ${dateInfo.iso}`, text });
     return send(res, 200, { ok: true, email, date: dateInfo.iso, id: sent.id || "" });
   } catch (err) {

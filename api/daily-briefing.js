@@ -5,6 +5,7 @@ const DATABASE_ID = process.env.FIRESTORE_DATABASE_ID || "(default)";
 const CREATOR_EMAIL = process.env.CREATOR_EMAIL || "tae.suh123@gmail.com";
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "Goaltrack <onboarding@resend.dev>";
 const RESEND_REPLY_TO = process.env.RESEND_REPLY_TO || "no-reply@goaltrack.app";
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const FIRESTORE_ROOT = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/${encodeURIComponent(DATABASE_ID)}/documents`;
 let tokenCache = { token: "", expires: 0 };
 
@@ -148,7 +149,55 @@ function habitLines(appState, todaysEvents) {
   return ["- No recurring habit pattern yet."];
 }
 
-function buildBriefing({ appState, settings, dateInfo }) {
+function snapshotContext({ appState, dateInfo, events }) {
+  return {
+    date: dateInfo.iso,
+    profile: appState.userProfile || {},
+    todayEvents: events.slice(0, 12).map(e => ({ title: e.title, time: timeRange(e), category: e.category })),
+    activeGoals: (appState.goals || []).filter(g => !g.done).slice(0, 12).map(g => ({ title: g.title, type: g.type || g.category, description: g.desc || g.description || "" })),
+    habitSignals: habitLines(appState, events)
+  };
+}
+
+async function resolvePersonalMessage(prompt, { appState, settings, dateInfo, events }) {
+  const cleanPrompt = String(prompt || "").trim();
+  if (!cleanPrompt || !settings.messageOnlineEnabled) return cleanPrompt;
+  if (!process.env.OPENAI_API_KEY) return cleanPrompt;
+  const input = [
+    {
+      role: "system",
+      content: [{
+        type: "input_text",
+        text: "You write the Personal message section for a Goaltrack Daily Snapshot email. Use the user's prompt and Goaltrack context only. Stay encouraging, practical, and appropriate for a daily briefing. If the prompt asks for a verse, quote or paraphrase a short relevant verse with a reference and one sentence of motivation. Keep the final message under 65 words. Return only the message text."
+      }]
+    },
+    {
+      role: "user",
+      content: [{
+        type: "input_text",
+        text: JSON.stringify({ prompt: cleanPrompt, context: snapshotContext({ appState, dateInfo, events }) })
+      }]
+    }
+  ];
+  try {
+    const resp = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ model: OPENAI_MODEL, input })
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) return cleanPrompt;
+    const text = data.output_text || (data.output || []).flatMap(item => item.content || []).map(part => part.text || "").join("\n").trim();
+    return text || cleanPrompt;
+  } catch {
+    return cleanPrompt;
+  }
+}
+
+async function buildBriefing({ appState, settings, dateInfo }) {
   const name = appState.userProfile?.name || settings.email?.split("@")[0] || "there";
   const events = (appState.events || []).filter(e => e.date === dateInfo.iso).sort((a, b) => (a.time || "00:00").localeCompare(b.time || "00:00"));
   const goals = appState.goals || [];
@@ -175,8 +224,9 @@ function buildBriefing({ appState, settings, dateInfo }) {
   }
 
   if (settings.includeMessageToSelf && settings.messageToSelf) {
+    const personalMessage = await resolvePersonalMessage(settings.messageToSelf, { appState, settings, dateInfo, events });
     lines.push("Personal message:");
-    lines.push(settings.messageToSelf);
+    lines.push(personalMessage);
     lines.push("");
   }
 
@@ -303,7 +353,7 @@ async function runDailyBriefings() {
       continue;
     }
     const appState = await getAppState(uid);
-    const text = buildBriefing({ appState, settings, dateInfo });
+    const text = await buildBriefing({ appState, settings, dateInfo });
     const email = await sendEmail({ to: settings.email, subject: `Goaltrack Daily Snapshot - ${dateInfo.iso}`, text });
     await setSentLog(uid, logKey, { email: settings.email, resendId: email.id || "", date: dateInfo.iso });
     results.push({ uid, email: settings.email, sent: true, id: email.id || "" });

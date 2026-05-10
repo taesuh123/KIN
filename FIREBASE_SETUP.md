@@ -49,6 +49,8 @@ RESEND_REPLY_TO=no-reply@yourdomain.com
 CRON_SECRET=make up a long random password
 CREATOR_EMAIL=tae.suh123@gmail.com
 FIREBASE_SERVICE_ACCOUNT_KEY=the full Firebase service account JSON
+OPENAI_API_KEY=only needed if the Daily Snapshot Online message switch is on
+OPENAI_MODEL=gpt-4o-mini
 ```
 
 For `FIREBASE_SERVICE_ACCOUNT_KEY`, create a Firebase service account key in Firebase Project Settings > Service accounts. Copy the full JSON into Vercel as the value. This is server-only and must never be placed in `index.html`.
@@ -67,4 +69,4 @@ https://your-vercel-domain.vercel.app/api/daily-briefing?test=creator&secret=YOU
 
 The creator can also send a safer signed-in test from the Account > Notifications tab. That button calls `/api/test-briefing`, verifies the Firebase user is the creator, and builds the email from that specific day's calendar events in the selected timezone.
 
-The Account > Notifications Online switch only controls AI generation for the Daily Snapshot personal message. It does not control the main Agent tab. The email subject is `Goaltrack Daily Snapshot`, includes habit signals under today's events, and uses `RESEND_REPLY_TO` so replies route to a no-reply address.
+The Account > Notifications Online switch only controls AI generation for the Daily Snapshot personal message. It does not control the main Agent tab. When Online is on, the Personal message box stores the user's prompt, such as "Bible verse about motivation"; Goaltrack generates the final message right before the test or daily snapshot email is sent. The email subject is `Goaltrack Daily Snapshot`, includes habit signals under today's events, and uses `RESEND_REPLY_TO` so replies route to a no-reply address.
