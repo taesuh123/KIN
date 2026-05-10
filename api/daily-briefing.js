@@ -140,7 +140,7 @@ function buildBriefing({ appState, settings, dateInfo }) {
   if (settings.includeCalendar) {
     lines.push("Today you have:");
     if (events.length) events.forEach(e => lines.push(`- ${e.title}, ${timeRange(e)}`));
-    else lines.push("- No calendar events logged in GoalTrack.");
+    else lines.push("- No calendar events logged in GoalTrack for this specific day.");
     lines.push("");
   }
 
@@ -159,12 +159,12 @@ function buildBriefing({ appState, settings, dateInfo }) {
   }
 
   lines.push("Have a steady day.");
-  lines.push("GoalTrack");
+  lines.push("Goaltrack");
   return lines.join("\n");
 }
 
 function htmlEmail(text) {
-  return `<div style="font-family:Arial,sans-serif;line-height:1.55;color:#1A1916;max-width:620px;margin:0 auto;padding:24px"><h1 style="font-size:24px;margin:0 0 18px">GoalTrack Daily Briefing</h1>${text.split("\n\n").map(p => `<p style="white-space:pre-line;margin:0 0 16px">${escapeHtml(p)}</p>`).join("")}</div>`;
+  return `<div style="font-family:Arial,sans-serif;line-height:1.55;color:#1A1916;max-width:620px;margin:0 auto;padding:24px"><h1 style="font-size:24px;margin:0 0 18px">Goaltrack Daily Briefing</h1>${text.split("\n\n").map(p => `<p style="white-space:pre-line;margin:0 0 16px">${escapeHtml(p)}</p>`).join("")}</div>`;
 }
 
 function escapeHtml(text) {
@@ -256,13 +256,13 @@ async function sendCreatorTest() {
     "",
     `Today is ${dateInfo.label}.`,
     "",
-    "This is a GoalTrack test email. Your daily briefing sender is connected to Resend.",
+    "This is a Goaltrack test email. Your daily briefing sender is connected to Resend.",
     "",
     "Once your notification settings are enabled, the cron job will pull your real calendar events, goals, and personal message from Firebase.",
     "",
-    "GoalTrack"
+    "Goaltrack"
   ].join("\n");
-  return sendEmail({ to: CREATOR_EMAIL, subject: "GoalTrack test email", text });
+  return sendEmail({ to: CREATOR_EMAIL, subject: "Goaltrack test email", text });
 }
 
 async function runDailyBriefings() {
@@ -280,7 +280,7 @@ async function runDailyBriefings() {
     }
     const appState = await getAppState(uid);
     const text = buildBriefing({ appState, settings, dateInfo });
-    const email = await sendEmail({ to: settings.email, subject: `GoalTrack Daily Briefing - ${dateInfo.iso}`, text });
+    const email = await sendEmail({ to: settings.email, subject: `Goaltrack Daily Briefing - ${dateInfo.iso}`, text });
     await setSentLog(uid, logKey, { email: settings.email, resendId: email.id || "", date: dateInfo.iso });
     results.push({ uid, email: settings.email, sent: true, id: email.id || "" });
   }

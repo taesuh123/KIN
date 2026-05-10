@@ -63,3 +63,5 @@ To send a creator test email after deploying, open:
 ```text
 https://your-vercel-domain.vercel.app/api/daily-briefing?test=creator&secret=YOUR_CRON_SECRET
 ```
+
+The creator can also send a safer signed-in test from the Account > Notifications tab. That button calls `/api/test-briefing`, verifies the Firebase user is the creator, and builds the email from that specific day's calendar events in the selected timezone.
