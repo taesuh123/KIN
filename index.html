@@ -704,7 +704,6 @@ select.form-input{appearance:none}
     <div class="login-panel">
       <div class="login-copy" id="login-copy">Sign in with Google to save your GoalTrack data to Firebase and access it later.</div>
       <button class="google-btn" id="google-login-btn" onclick="handleGoogleLogin()">Continue with Google</button>
-      <button class="google-btn secondary" id="google-logout-btn" onclick="handleGoogleLogout()" style="display:none">Sign out</button>
       <div class="account-tools" id="creator-account-tools">
         <div class="account-tabs">
           <button class="account-tab active" id="account-tab-profile" onclick="switchAccountTab('profile')">Profile</button>
@@ -738,6 +737,7 @@ select.form-input{appearance:none}
         </div>
         <div class="modal-footer"><span class="account-status" id="account-save-status"></span><button class="btn-save" onclick="saveAccountSettings()">Save Settings</button></div>
       </div>
+      <button class="google-btn secondary" id="google-logout-btn" onclick="handleGoogleLogout()" style="display:none">Sign out</button>
       <div class="login-note">Uses Firebase Authentication with Google Sign-In and Cloud Firestore. Phone auth and Cloud Functions are not used.</div>
     </div>
   </div>
