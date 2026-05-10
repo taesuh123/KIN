@@ -2,7 +2,7 @@ const crypto = require("crypto");
 
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "goaltrack-15e35";
-const AGENT_TESTER_EMAIL = (process.env.AGENT_TESTER_EMAIL || "taesuh123@gmail.com").toLowerCase();
+const AGENT_TESTER_EMAILS = (process.env.AGENT_TESTER_EMAIL || "taesuh123@gmail.com,tae.suh123@gmail.com").split(",").map(email => email.trim()).filter(Boolean);
 let certCache = { expires: 0, certs: null };
 
 function send(res, status, body) {
@@ -108,6 +108,17 @@ function citationsFromResponse(data) {
   return citations.slice(0, 5);
 }
 
+function normalizeEmailForAccess(email) {
+  const value = String(email || "").trim().toLowerCase();
+  const [name, domain] = value.split("@");
+  return domain === "gmail.com" ? `${name.replace(/\./g, "")}@${domain}` : value;
+}
+
+function canUseAgent(email) {
+  const signedIn = normalizeEmailForAccess(email);
+  return AGENT_TESTER_EMAILS.some(allowed => normalizeEmailForAccess(allowed) === signedIn);
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") return send(res, 405, { error: "Use POST" });
   if (!process.env.OPENAI_API_KEY) return send(res, 500, { error: "OpenAI API key is not configured yet." });
@@ -115,7 +126,7 @@ module.exports = async function handler(req, res) {
   try {
     const token = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
     const user = await verifyFirebaseToken(token);
-    if ((user.email || "").toLowerCase() !== AGENT_TESTER_EMAIL) {
+    if (!canUseAgent(user.email)) {
       return send(res, 403, { error: "The personal agent is only available to the test account right now." });
     }
     const payload = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});

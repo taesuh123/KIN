@@ -795,7 +795,7 @@ const DEFAULT_SKILLS=[
 ];
 
 const today=new Date();today.setHours(0,0,0,0);
-const AGENT_TESTER_EMAIL='taesuh123@gmail.com';
+const AGENT_TESTER_EMAILS=['taesuh123@gmail.com','tae.suh123@gmail.com'];
 let viewDate=new Date(today),miniDate=new Date(today),currentView='month',currentPage='calendar';
 let activeEvId=null,editingId=null,editingGoalId=null,editingGoalTypeId=null,selCat='work',selGType='personal',selEventGType='personal';
 let evSelectedSkills=[];
@@ -851,7 +851,8 @@ function updateLoginUI(){
   if(firebaseUser){btn.textContent='Account';btn.classList.add('signed-in');if(copy)copy.textContent='Signed in as '+(firebaseUser.email||firebaseUser.displayName||'Google user')+'. Your goals and events are saved to Firebase.';if(login)login.style.display='none';if(logout)logout.style.display='';}
   else{btn.textContent='Login';btn.classList.remove('signed-in');if(copy)copy.textContent='Sign in with Google to save your GoalTrack data to Firebase and access it later.';if(login){login.style.display='';login.disabled=false;login.textContent='Continue with Google';}if(logout)logout.style.display='none';}
 }
-function canUseAgent(){return (firebaseUser?.email||'').toLowerCase()===AGENT_TESTER_EMAIL;}
+function normalizeEmailForAccess(email){const v=String(email||'').trim().toLowerCase();const [name,domain]=v.split('@');return domain==='gmail.com'?name.replace(/\./g,'')+'@'+domain:v;}
+function canUseAgent(){const signedIn=normalizeEmailForAccess(firebaseUser?.email);return AGENT_TESTER_EMAILS.some(email=>normalizeEmailForAccess(email)===signedIn);}
 function updateAgentAccessUI(){const tab=document.getElementById('agent-nav-tab');if(tab)tab.style.display=canUseAgent()?'':'none';if(currentPage==='agent'&&!canUseAgent())switchPage('calendar');}
 function openLoginModal(){updateLoginUI();document.getElementById('login-modal-bg').classList.add('open');}
 function closeLoginModal(){document.getElementById('login-modal-bg').classList.remove('open');}
