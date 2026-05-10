@@ -2,7 +2,7 @@ const crypto = require("crypto");
 
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "goaltrack-15e35";
-const AGENT_TESTER_EMAILS = (process.env.AGENT_TESTER_EMAIL || "taesuh123@gmail.com,tae.suh123@gmail.com").split(",").map(email => email.trim()).filter(Boolean);
+const AGENT_TESTER_EMAILS = ["chansuh@gmail.com", "thomassuhruth@gmail.com"];
 let certCache = { expires: 0, certs: null };
 
 function send(res, status, body) {
