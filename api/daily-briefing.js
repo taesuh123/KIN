@@ -4,6 +4,7 @@ const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "goaltrack-15e35";
 const DATABASE_ID = process.env.FIRESTORE_DATABASE_ID || "(default)";
 const CREATOR_EMAIL = process.env.CREATOR_EMAIL || "tae.suh123@gmail.com";
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "Goaltrack <onboarding@resend.dev>";
+const RESEND_REPLY_TO = process.env.RESEND_REPLY_TO || "no-reply@goaltrack.app";
 const FIRESTORE_ROOT = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/${encodeURIComponent(DATABASE_ID)}/documents`;
 let tokenCache = { token: "", expires: 0 };
 
@@ -129,6 +130,24 @@ function activeGoalsForToday(events, goals) {
   return goals.filter(g => !g.done && ids.has(Number(g.id)));
 }
 
+function normalizedTitle(title) {
+  return String(title || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function habitLines(appState, todaysEvents) {
+  const counts = {};
+  (appState.events || []).forEach(event => {
+    const key = normalizedTitle(event.title);
+    if (key) counts[key] = (counts[key] || 0) + 1;
+  });
+  const repeated = Object.entries(counts).filter(([, count]) => count > 1).sort((a, b) => b[1] - a[1]);
+  const todayRepeated = todaysEvents.filter(event => counts[normalizedTitle(event.title)] > 1).map(event => event.title);
+  const lines = [...new Set(todayRepeated)].slice(0, 3);
+  if (lines.length) return lines.map(title => `- ${title}`);
+  if (repeated.length) return repeated.slice(0, 3).map(([title, count]) => `- ${title.replace(/\b\w/g, c => c.toUpperCase())} (${count}x logged)`);
+  return ["- No recurring habit pattern yet."];
+}
+
 function buildBriefing({ appState, settings, dateInfo }) {
   const name = appState.userProfile?.name || settings.email?.split("@")[0] || "there";
   const events = (appState.events || []).filter(e => e.date === dateInfo.iso).sort((a, b) => (a.time || "00:00").localeCompare(b.time || "00:00"));
@@ -140,7 +159,10 @@ function buildBriefing({ appState, settings, dateInfo }) {
   if (settings.includeCalendar) {
     lines.push("Today you have:");
     if (events.length) events.forEach(e => lines.push(`- ${e.title}, ${timeRange(e)}`));
-    else lines.push("- No calendar events logged in GoalTrack for this specific day.");
+    else lines.push("- No calendar events logged in Goaltrack for this specific day.");
+    lines.push("");
+    lines.push("Habits:");
+    habitLines(appState, events).forEach(line => lines.push(line));
     lines.push("");
   }
 
@@ -153,18 +175,20 @@ function buildBriefing({ appState, settings, dateInfo }) {
   }
 
   if (settings.includeMessageToSelf && settings.messageToSelf) {
-    lines.push("Message to yourself:");
+    lines.push("Personal message:");
     lines.push(settings.messageToSelf);
     lines.push("");
   }
 
   lines.push("Have a steady day.");
   lines.push("Goaltrack");
+  lines.push("");
+  lines.push("This is an automated snapshot. Replies are not monitored.");
   return lines.join("\n");
 }
 
 function htmlEmail(text) {
-  return `<div style="font-family:Arial,sans-serif;line-height:1.55;color:#1A1916;max-width:620px;margin:0 auto;padding:24px"><h1 style="font-size:24px;margin:0 0 18px">Goaltrack Daily Briefing</h1>${text.split("\n\n").map(p => `<p style="white-space:pre-line;margin:0 0 16px">${escapeHtml(p)}</p>`).join("")}</div>`;
+  return `<div style="font-family:Arial,sans-serif;line-height:1.55;color:#1A1916;max-width:620px;margin:0 auto;padding:24px"><h1 style="font-size:24px;margin:0 0 18px">Goaltrack Daily Snapshot</h1>${text.split("\n\n").map(p => `<p style="white-space:pre-line;margin:0 0 16px">${escapeHtml(p)}</p>`).join("")}</div>`;
 }
 
 function escapeHtml(text) {
@@ -179,7 +203,7 @@ async function sendEmail({ to, subject, text }) {
       "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ from: RESEND_FROM_EMAIL, to, subject, text, html: htmlEmail(text) })
+    body: JSON.stringify({ from: RESEND_FROM_EMAIL, to, reply_to: RESEND_REPLY_TO, subject, text, html: htmlEmail(text) })
   });
   const data = await resp.json().catch(() => ({}));
   if (!resp.ok) throw new Error(data.message || data.error || "Resend email failed.");
@@ -262,7 +286,7 @@ async function sendCreatorTest() {
     "",
     "Goaltrack"
   ].join("\n");
-  return sendEmail({ to: CREATOR_EMAIL, subject: "Goaltrack test email", text });
+  return sendEmail({ to: CREATOR_EMAIL, subject: "Goaltrack Daily Snapshot test email", text });
 }
 
 async function runDailyBriefings() {
@@ -280,7 +304,7 @@ async function runDailyBriefings() {
     }
     const appState = await getAppState(uid);
     const text = buildBriefing({ appState, settings, dateInfo });
-    const email = await sendEmail({ to: settings.email, subject: `Goaltrack Daily Briefing - ${dateInfo.iso}`, text });
+    const email = await sendEmail({ to: settings.email, subject: `Goaltrack Daily Snapshot - ${dateInfo.iso}`, text });
     await setSentLog(uid, logKey, { email: settings.email, resendId: email.id || "", date: dateInfo.iso });
     results.push({ uid, email: settings.email, sent: true, id: email.id || "" });
   }

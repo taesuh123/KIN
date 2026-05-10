@@ -38,13 +38,14 @@ The agent requires the user to be signed in with Google, checks that the questio
 
 The creator-only Account profile is also passed into the agent context so responses can become more personalized. Notification preferences are saved now; the Resend/Vercel Cron sender can read `users/{uid}/settings/notifications` when daily briefing delivery is added.
 
-## Daily Email Briefing Setup
+## Daily Snapshot Setup
 
 Add these Vercel Environment Variables:
 
 ```text
 RESEND_API_KEY=your Resend API key
 RESEND_FROM_EMAIL=Goaltrack <onboarding@resend.dev>
+RESEND_REPLY_TO=no-reply@yourdomain.com
 CRON_SECRET=make up a long random password
 CREATOR_EMAIL=tae.suh123@gmail.com
 FIREBASE_SERVICE_ACCOUNT_KEY=the full Firebase service account JSON
@@ -65,3 +66,5 @@ https://your-vercel-domain.vercel.app/api/daily-briefing?test=creator&secret=YOU
 ```
 
 The creator can also send a safer signed-in test from the Account > Notifications tab. That button calls `/api/test-briefing`, verifies the Firebase user is the creator, and builds the email from that specific day's calendar events in the selected timezone.
+
+The Account > Notifications Online switch only controls AI generation for the Daily Snapshot personal message. It does not control the main Agent tab. The email subject is `Goaltrack Daily Snapshot`, includes habit signals under today's events, and uses `RESEND_REPLY_TO` so replies route to a no-reply address.
