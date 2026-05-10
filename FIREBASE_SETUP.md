@@ -44,7 +44,7 @@ Add these Vercel Environment Variables:
 
 ```text
 RESEND_API_KEY=your Resend API key
-RESEND_FROM_EMAIL=GoalTrack <onboarding@resend.dev>
+RESEND_FROM_EMAIL=Goaltrack <onboarding@resend.dev>
 CRON_SECRET=make up a long random password
 CREATOR_EMAIL=tae.suh123@gmail.com
 FIREBASE_SERVICE_ACCOUNT_KEY=the full Firebase service account JSON

@@ -3,7 +3,7 @@ const crypto = require("crypto");
 const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "goaltrack-15e35";
 const DATABASE_ID = process.env.FIRESTORE_DATABASE_ID || "(default)";
 const CREATOR_EMAIL = process.env.CREATOR_EMAIL || "tae.suh123@gmail.com";
-const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "GoalTrack <onboarding@resend.dev>";
+const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "Goaltrack <onboarding@resend.dev>";
 const FIRESTORE_ROOT = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/${encodeURIComponent(DATABASE_ID)}/documents`;
 let tokenCache = { token: "", expires: 0 };
 
