@@ -87,6 +87,7 @@ function compactContext(context) {
     goals: (context.goals || []).slice(0, 30),
     goalTypes: context.goalTypes || [],
     recentEvents: (context.events || []).slice(-50),
+    profile: context.profile || {},
     habitSummary: context.habitSummary || "",
     progressSummary: context.progressSummary || "",
     memory: context.memory || {}

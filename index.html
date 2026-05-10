@@ -379,6 +379,20 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .btn-danger{padding:7px 18px;background:#993C1D;color:#fff;border:none;border-radius:var(--r-sm);font-size:13.5px;font-weight:500;font-family:'DM Sans',sans-serif;cursor:pointer;transition:opacity .15s}
 .btn-danger:hover{opacity:.88}
 .confirm-copy{color:var(--text-muted);font-size:14px;line-height:1.45;margin-top:-2px}
+.account-tools{display:none;margin-top:1rem;border-top:.5px solid var(--border);padding-top:1rem}
+.account-tabs{display:flex;gap:6px;background:var(--surface2);border-radius:var(--r-sm);padding:4px;margin-bottom:1rem}
+.account-tab{flex:1;border:none;background:transparent;border-radius:9px;padding:8px 10px;font:700 12.5px 'DM Sans',sans-serif;color:var(--text-muted);cursor:pointer}
+.account-tab.active{background:var(--surface);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.account-panel{display:none}
+.account-panel.active{display:block}
+.account-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.account-textarea{min-height:76px;resize:vertical}
+.account-switch-row{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--bg);border:.5px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:10px}
+.account-switch-copy{font-size:13px;color:var(--text);font-weight:700}
+.account-switch-sub{font-size:11.5px;color:var(--text-muted);line-height:1.4;margin-top:2px}
+.account-checks{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:1rem}
+.account-checks label{font-size:12.5px;color:var(--text-muted);font-weight:700;display:flex;gap:7px;align-items:center;background:var(--bg);border:.5px solid var(--border);border-radius:var(--r-sm);padding:8px 10px}
+.account-status{font-size:12px;color:var(--accent);font-weight:700;margin-right:auto;align-self:center}
 .cat-pills{display:flex;gap:6px;flex-wrap:wrap}
 .cat-pill{padding:4px 10px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1.5px solid transparent;transition:all .12s;opacity:.65}
 .cat-pill.selected{opacity:1;border-color:currentColor}
@@ -691,6 +705,39 @@ select.form-input{appearance:none}
       <div class="login-copy" id="login-copy">Sign in with Google to save your GoalTrack data to Firebase and access it later.</div>
       <button class="google-btn" id="google-login-btn" onclick="handleGoogleLogin()">Continue with Google</button>
       <button class="google-btn secondary" id="google-logout-btn" onclick="handleGoogleLogout()" style="display:none">Sign out</button>
+      <div class="account-tools" id="creator-account-tools">
+        <div class="account-tabs">
+          <button class="account-tab active" id="account-tab-profile" onclick="switchAccountTab('profile')">Profile</button>
+          <button class="account-tab" id="account-tab-notifications" onclick="switchAccountTab('notifications')">Notifications</button>
+        </div>
+        <div class="account-panel active" id="account-panel-profile">
+          <div class="account-grid">
+            <div class="form-group"><label class="form-label">Preferred name</label><input class="form-input" id="profile-name" placeholder="Tae"/></div>
+            <div class="form-group"><label class="form-label">Timezone</label><input class="form-input" id="profile-timezone" placeholder="America/New_York"/></div>
+          </div>
+          <div class="form-group"><label class="form-label">About you</label><textarea class="form-input account-textarea" id="profile-about" placeholder="What should the agent know about you?"></textarea></div>
+          <div class="form-group"><label class="form-label">Coaching style</label><input class="form-input" id="profile-style" placeholder="Direct, encouraging, detailed, concise..."/></div>
+          <div class="form-group"><label class="form-label">Constraints or preferences</label><textarea class="form-input account-textarea" id="profile-constraints" placeholder="Schedule limits, health notes, school/work priorities, dietary preferences..."></textarea></div>
+        </div>
+        <div class="account-panel" id="account-panel-notifications">
+          <div class="account-switch-row">
+            <div><div class="account-switch-copy">Daily Email Briefing</div><div class="account-switch-sub">Optional daily email with today’s events, connected goals, and your message to yourself.</div></div>
+            <input type="checkbox" id="notif-enabled"/>
+          </div>
+          <div class="account-grid">
+            <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="notif-email" placeholder="user@email.com"/></div>
+            <div class="form-group"><label class="form-label">Send time</label><input class="form-input" type="time" id="notif-send-time"/></div>
+          </div>
+          <div class="form-group"><label class="form-label">Timezone</label><input class="form-input" id="notif-timezone" placeholder="America/New_York"/></div>
+          <div class="account-checks">
+            <label><input type="checkbox" id="notif-calendar"/> Include calendar</label>
+            <label><input type="checkbox" id="notif-goals"/> Include goals</label>
+            <label><input type="checkbox" id="notif-message"/> Include message</label>
+          </div>
+          <div class="form-group"><label class="form-label">Personal message</label><textarea class="form-input account-textarea" id="notif-message-text" placeholder="Stay consistent today."></textarea></div>
+        </div>
+        <div class="modal-footer"><span class="account-status" id="account-save-status"></span><button class="btn-save" onclick="saveAccountSettings()">Save Settings</button></div>
+      </div>
       <div class="login-note">Uses Firebase Authentication with Google Sign-In and Cloud Firestore. Phone auth and Cloud Functions are not used.</div>
     </div>
   </div>
@@ -720,6 +767,7 @@ if (hasFirebaseConfig) {
   const db = getFirestore(app);
   const provider = new GoogleAuthProvider();
   const appStateRef = uid => doc(db, "users", uid, "appState", "main");
+  const settingsRef = (uid, name) => doc(db, "users", uid, "settings", name);
 
   window.goaltrackFirebase = {
     enabled: true,
@@ -731,12 +779,21 @@ if (hasFirebaseConfig) {
       await signOut(auth);
     },
     async loadState(uid) {
-      const snap = await getDoc(appStateRef(uid));
-      return snap.exists() ? snap.data() : null;
+      const [snap, profileSnap, notificationSnap] = await Promise.all([
+        getDoc(appStateRef(uid)),
+        getDoc(settingsRef(uid, "profile")),
+        getDoc(settingsRef(uid, "notifications"))
+      ]);
+      const data = snap.exists() ? snap.data() : {};
+      if (profileSnap.exists()) data.userProfile = profileSnap.data();
+      if (notificationSnap.exists()) data.notificationSettings = notificationSnap.data();
+      return Object.keys(data).length ? data : null;
     },
     async saveState(state) {
       if (!auth.currentUser) return;
       await setDoc(appStateRef(auth.currentUser.uid), { ...state, updatedAt: serverTimestamp() }, { merge: true });
+      if (state.userProfile) await setDoc(settingsRef(auth.currentUser.uid, "profile"), { ...state.userProfile, updatedAt: serverTimestamp() }, { merge: true });
+      if (state.notificationSettings) await setDoc(settingsRef(auth.currentUser.uid, "notifications"), { ...state.notificationSettings, updatedAt: serverTimestamp() }, { merge: true });
     }
   };
 
@@ -809,6 +866,8 @@ const DEFAULT_SKILLS=[
 
 const today=new Date();today.setHours(0,0,0,0);
 const AGENT_TESTER_EMAILS=['taesuh123@gmail.com','tae.suh123@gmail.com'];
+const DEFAULT_USER_PROFILE={name:'',timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||'America/New_York',about:'',coachingStyle:'',constraints:''};
+const DEFAULT_NOTIFICATION_SETTINGS={dailyEmailEnabled:false,email:'',sendTime:'08:00',timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||'America/New_York',includeCalendar:true,includeGoals:true,includeMessageToSelf:true,messageToSelf:''};
 let viewDate=new Date(today),miniDate=new Date(today),currentView='month',currentPage='calendar';
 let activeEvId=null,editingId=null,editingGoalId=null,editingGoalTypeId=null,selCat='work',selGType='personal',selEventGType='personal';
 let evSelectedSkills=[];
@@ -843,6 +902,8 @@ allSkills=[...new Set(allSkills)].sort((a,b)=>a.localeCompare(b));
 let agentChats=ld('agent_chats',[]);
 let activeAgentChatId=ld('agent_active_chat',null);
 let agentMemory=ld('agent_memory',{});
+let userProfile={...DEFAULT_USER_PROFILE,...ld('user_profile',{})};
+let notificationSettings={...DEFAULT_NOTIFICATION_SETTINGS,...ld('notification_settings',{})};
 if(!agentChats.length){const legacy=ld('agent_msgs',[]);activeAgentChatId='chat_'+Date.now();agentChats=[{id:activeAgentChatId,title:'Current chat',created:Date.now(),updated:Date.now(),messages:legacy}];sd('agent_chats',agentChats);sd('agent_active_chat',activeAgentChatId);}
 if(!agentChats.some(c=>c.id===activeAgentChatId)){activeAgentChatId=agentChats[0].id;sd('agent_active_chat',activeAgentChatId);}
 let selectedProgressGoalId=ld('progress_goal',null);
@@ -852,14 +913,15 @@ let firebaseUser=null;
 let cloudReady=false;
 let confirmAction=null;
 
-function currentAppState(){return{goals,events,goalTypes,agentChats,activeAgentChatId,agentMemory};}
-function saveLocalState(){sd('goals',goals);sd('ev',events);sd('goal_types',goalTypes);sd('agent_chats',agentChats);sd('agent_active_chat',activeAgentChatId);sd('agent_memory',agentMemory);}
+function currentAppState(){return{goals,events,goalTypes,agentChats,activeAgentChatId,agentMemory,userProfile,notificationSettings};}
+function saveLocalState(){sd('goals',goals);sd('ev',events);sd('goal_types',goalTypes);sd('agent_chats',agentChats);sd('agent_active_chat',activeAgentChatId);sd('agent_memory',agentMemory);sd('user_profile',userProfile);sd('notification_settings',notificationSettings);}
 async function saveCloudState(){if(firebaseUser&&window.goaltrackFirebase?.enabled){try{await window.goaltrackFirebase.saveState(currentAppState());}catch(err){console.warn('Firebase save failed',err);}}}
 function persistState(){saveLocalState();saveCloudState();}
 function updateLoginUI(){
   const api=window.goaltrackFirebase,btn=document.getElementById('login-btn'),copy=document.getElementById('login-copy'),login=document.getElementById('google-login-btn'),logout=document.getElementById('google-logout-btn');
   if(!btn)return;
   updateAgentAccessUI();
+  renderAccountTools();
   if(!api?.enabled){btn.textContent='Login';btn.disabled=false;if(copy)copy.textContent='Add your Firebase web app config in index.html to enable Google Sign-In and cloud saves.';if(login){login.textContent='Firebase config needed';login.disabled=true;}if(logout)logout.style.display='none';return;}
   if(firebaseUser){btn.textContent='Account';btn.classList.add('signed-in');if(copy)copy.textContent='Signed in as '+(firebaseUser.email||firebaseUser.displayName||'Google user')+'. Your goals and events are saved to Firebase.';if(login)login.style.display='none';if(logout)logout.style.display='';}
   else{btn.textContent='Login';btn.classList.remove('signed-in');if(copy)copy.textContent='Sign in with Google to save your GoalTrack data to Firebase and access it later.';if(login){login.style.display='';login.disabled=false;login.textContent='Continue with Google';}if(logout)logout.style.display='none';}
@@ -867,7 +929,12 @@ function updateLoginUI(){
 function normalizeEmailForAccess(email){const v=String(email||'').trim().toLowerCase();const [name,domain]=v.split('@');return domain==='gmail.com'?name.replace(/\./g,'')+'@'+domain:v;}
 function canUseAgent(){const signedIn=normalizeEmailForAccess(firebaseUser?.email);return AGENT_TESTER_EMAILS.some(email=>normalizeEmailForAccess(email)===signedIn);}
 function updateAgentAccessUI(){const tab=document.getElementById('agent-nav-tab');if(tab)tab.style.display=canUseAgent()?'':'none';if(currentPage==='agent'&&!canUseAgent())switchPage('calendar');}
-function openLoginModal(){updateLoginUI();document.getElementById('login-modal-bg').classList.add('open');}
+function switchAccountTab(tab){document.querySelectorAll('.account-tab').forEach(el=>el.classList.toggle('active',el.id==='account-tab-'+tab));document.querySelectorAll('.account-panel').forEach(el=>el.classList.toggle('active',el.id==='account-panel-'+tab));}
+function setInputValue(id,value){const el=document.getElementById(id);if(el)el.value=value||'';}
+function setCheckedValue(id,value){const el=document.getElementById(id);if(el)el.checked=!!value;}
+function renderAccountTools(){const box=document.getElementById('creator-account-tools');if(!box)return;box.style.display=firebaseUser&&canUseAgent()?'block':'none';if(!(firebaseUser&&canUseAgent()))return;setInputValue('profile-name',userProfile.name);setInputValue('profile-timezone',userProfile.timezone);setInputValue('profile-about',userProfile.about);setInputValue('profile-style',userProfile.coachingStyle);setInputValue('profile-constraints',userProfile.constraints);setCheckedValue('notif-enabled',notificationSettings.dailyEmailEnabled);setInputValue('notif-email',notificationSettings.email||firebaseUser.email);setInputValue('notif-send-time',notificationSettings.sendTime||'08:00');setInputValue('notif-timezone',notificationSettings.timezone||userProfile.timezone);setCheckedValue('notif-calendar',notificationSettings.includeCalendar);setCheckedValue('notif-goals',notificationSettings.includeGoals);setCheckedValue('notif-message',notificationSettings.includeMessageToSelf);setInputValue('notif-message-text',notificationSettings.messageToSelf);}
+async function saveAccountSettings(){userProfile={name:document.getElementById('profile-name')?.value.trim()||'',timezone:document.getElementById('profile-timezone')?.value.trim()||DEFAULT_USER_PROFILE.timezone,about:document.getElementById('profile-about')?.value.trim()||'',coachingStyle:document.getElementById('profile-style')?.value.trim()||'',constraints:document.getElementById('profile-constraints')?.value.trim()||''};notificationSettings={dailyEmailEnabled:!!document.getElementById('notif-enabled')?.checked,email:document.getElementById('notif-email')?.value.trim()||firebaseUser?.email||'',sendTime:document.getElementById('notif-send-time')?.value||'08:00',timezone:document.getElementById('notif-timezone')?.value.trim()||userProfile.timezone,includeCalendar:!!document.getElementById('notif-calendar')?.checked,includeGoals:!!document.getElementById('notif-goals')?.checked,includeMessageToSelf:!!document.getElementById('notif-message')?.checked,messageToSelf:document.getElementById('notif-message-text')?.value.trim()||''};saveLocalState();await saveCloudState();const status=document.getElementById('account-save-status');if(status){status.textContent='Saved';setTimeout(()=>status.textContent='',1800);}}
+function openLoginModal(){updateLoginUI();renderAccountTools();document.getElementById('login-modal-bg').classList.add('open');}
 function closeLoginModal(){document.getElementById('login-modal-bg').classList.remove('open');}
 async function handleGoogleLogin(){try{await window.goaltrackFirebase?.signIn?.();}catch(err){alert('Google sign-in failed: '+(err.message||err));}}
 async function handleGoogleLogout(){try{await window.goaltrackFirebase?.signOut?.();}catch(err){alert('Sign out failed: '+(err.message||err));}}
@@ -883,6 +950,8 @@ async function onGoalTrackFirebaseAuth(user){
       agentChats=Array.isArray(cloud.agentChats)?cloud.agentChats:agentChats;
       activeAgentChatId=cloud.activeAgentChatId||activeAgentChatId;
       agentMemory=cloud.agentMemory||agentMemory;
+      userProfile={...DEFAULT_USER_PROFILE,...(cloud.userProfile||{})};
+      notificationSettings={...DEFAULT_NOTIFICATION_SETTINGS,...(cloud.notificationSettings||{})};
       if(!agentChats.length){activeAgentChatId='chat_'+Date.now();agentChats=[{id:activeAgentChatId,title:'Current chat',created:Date.now(),updated:Date.now(),messages:[]}];}
       if(!agentChats.some(c=>c.id===activeAgentChatId))activeAgentChatId=agentChats[0].id;
       saveLocalState();
@@ -891,6 +960,7 @@ async function onGoalTrackFirebaseAuth(user){
     }
     nextGId=Math.max(...goals.map(g=>Number(g.id)||0),0)+1;
     nextId=Math.max(...events.map(e=>Number(e.id)||0),0)+1;
+    renderAccountTools();
     renderGoals();render();
   }catch(err){alert('Could not load Firebase data: '+(err.message||err));}
 }
@@ -1189,7 +1259,7 @@ function agentContext(){
   const linked=events.filter(e=>eventGoalIds(e).length).length;
   const catCount={};events.forEach(e=>catCount[e.cat]=(catCount[e.cat]||0)+1);
   const topCat=Object.entries(catCount).sort((a,b)=>b[1]-a[1])[0];
-  return{goals,events:recent,goalTypes,memory:agentMemory,habitSummary:'Events logged: '+events.length+'. Goal-linked events: '+linked+'. Most used category: '+(topCat?(CATS[topCat[0]]?.label||topCat[0]):'none')+'.',progressSummary:goals.map(g=>g.title+': '+(g.done?'completed':'in progress')+', '+linkedEventsForGoal(g.id).length+' linked sessions').join(' | ')};
+  return{goals,events:recent,goalTypes,profile:userProfile,memory:agentMemory,habitSummary:'Events logged: '+events.length+'. Goal-linked events: '+linked+'. Most used category: '+(topCat?(CATS[topCat[0]]?.label||topCat[0]):'none')+'.',progressSummary:goals.map(g=>g.title+': '+(g.done?'completed':'in progress')+', '+linkedEventsForGoal(g.id).length+' linked sessions').join(' | ')};
 }
 function agentResponseHtml(m){const links=(m.citations||[]).map(c=>sourceLink(c.title||c.url,c.url)).join('');return esc(m.text||'').replace(/\n/g,'<br>')+(links?'<div class="agent-sources">'+links+'</div>':'');}
 function buildAgentChat(){const msgs=agentMessages(),shown=msgs.length?msgs:[{role:'agent',text:agentWelcome()}],items=agentChats.map(c=>'<div class="agent-chat-row '+(c.id===activeAgentChatId?'active':'')+'"><button class="agent-chat-item" onclick="switchAgentChat(\''+c.id+'\')">'+esc(chatTitle(c))+'</button><button class="agent-chat-more" title="Delete chat" onclick="deleteAgentChat(event,\''+c.id+'\')">...</button></div>').join('');return'<div class="agent-sidebar"><div class="agent-sidebar-top"><div class="agent-brand">Goal<span>track</span></div><button class="agent-new-wide" onclick="newAgentChat()">+ New chat</button></div><div class="agent-sidebar-label">Previous chats</div><div class="agent-chat-list">'+items+'</div></div><div class="agent-chat"><div class="agent-head"><div><div class="agent-title">Your Personal Agent</div><div class="ai-sub" style="margin-top:2px">Goal-locked to your goals, calendar, habits, progress, and skills.</div></div><div class="agent-status">Goal-locked</div></div><div class="agent-messages" id="agent-messages">'+shown.map(agentMsgHtml).join('')+'</div><div class="agent-input-row"><input class="agent-input" id="agent-input" placeholder="Ask about your goals, events, habits, or progress..." onkeydown="agentKey(event)"/><button class="agent-send" id="agent-send-btn" onclick="sendAgentMessage()">Send</button></div></div>';}

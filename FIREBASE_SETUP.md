@@ -13,6 +13,8 @@ GoalTrack saves app data at:
 
 ```text
 users/{firebaseUid}/appState/main
+users/{firebaseUid}/settings/profile
+users/{firebaseUid}/settings/notifications
 ```
 
 This implementation uses Firebase Authentication with Google Sign-In and Cloud Firestore only. Do not enable Phone authentication, Cloud Functions, or paid Firebase services for this setup.
@@ -33,3 +35,5 @@ AGENT_TESTER_EMAIL=taesuh123@gmail.com
 `OPENAI_MODEL` controls cost. Keep it set to `gpt-4o-mini` for the cheaper model. If you want a stronger but usually more expensive model later, change only that environment variable.
 
 The agent requires the user to be signed in with Google, checks that the question is related to the user's GoalTrack data, and stores agent chats with the rest of the user's app state in Firestore.
+
+The creator-only Account profile is also passed into the agent context so responses can become more personalized. Notification preferences are saved now; the Resend/Vercel Cron sender can read `users/{uid}/settings/notifications` when daily briefing delivery is added.
