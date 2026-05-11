@@ -9,6 +9,7 @@ service cloud.firestore {
           "chansuh@gmail.com",
           "thomassuhruth@gmail.com"
           "tae.suh123@gmail.com"
+          "magstwoody@gmail.com"
         ];
     }
 
