@@ -3,6 +3,10 @@ const crypto = require("crypto");
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "goaltrack-15e35";
 let certCache = { expires: 0, certs: null };
+const MODEL_RATES_PER_MILLION = {
+  "gpt-4o-mini": { input: 0.15, output: 0.60 },
+  "gpt-4o": { input: 5.00, output: 15.00 }
+};
 
 function send(res, status, body) {
   res.statusCode = status;
@@ -110,6 +114,14 @@ function citationsFromResponse(data) {
   return citations.slice(0, 5);
 }
 
+function estimateCost(data) {
+  const usage = data.usage || {};
+  const inputTokens = usage.input_tokens || usage.prompt_tokens || 0;
+  const outputTokens = usage.output_tokens || usage.completion_tokens || 0;
+  const rates = MODEL_RATES_PER_MILLION[OPENAI_MODEL] || MODEL_RATES_PER_MILLION["gpt-4o-mini"];
+  return Number((((inputTokens / 1000000) * rates.input) + ((outputTokens / 1000000) * rates.output)).toFixed(6));
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") return send(res, 405, { error: "Use POST" });
   if (!process.env.OPENAI_API_KEY) return send(res, 500, { error: "OpenAI API key is not configured yet." });
@@ -169,6 +181,8 @@ module.exports = async function handler(req, res) {
       text: textFromResponse(data),
       citations: citationsFromResponse(data),
       model: OPENAI_MODEL,
+      usage: data.usage || {},
+      estimatedCostUsd: estimateCost(data),
       relatedGoalIds: scoped.relatedGoals.map(g => g.id),
       memoryPatch: {
         lastRelatedGoals: scoped.relatedGoals.map(g => g.title),
