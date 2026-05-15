@@ -178,6 +178,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .panel-title{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text);margin-bottom:1rem}
 .panel-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:1rem}
 .panel-head .panel-title{margin-bottom:0}
+.metric-range-select{appearance:none;border:none;background:var(--surface2);color:var(--text-muted);border-radius:999px;padding:5px 24px 5px 10px;font:800 10.5px 'DM Sans',sans-serif;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;background-image:linear-gradient(45deg,transparent 50%,var(--text-light) 50%),linear-gradient(135deg,var(--text-light) 50%,transparent 50%);background-position:calc(100% - 12px) 50%,calc(100% - 8px) 50%;background-size:4px 4px,4px 4px;background-repeat:no-repeat}
+.metric-range-select:focus{outline:1px solid var(--accent)}
 .activity-ticker-wrap{display:flex;align-items:center;gap:6px}
 .activity-ticker-label{font-size:10px;font-weight:700;color:var(--text-light);white-space:nowrap}
 .activity-ticker{font-size:11px;font-weight:800;border-radius:999px;padding:4px 8px;white-space:nowrap}
@@ -966,6 +968,7 @@ let agentMemory=ld('agent_memory',{});
 let userProfile={...DEFAULT_USER_PROFILE,...ld('user_profile',{})};
 let notificationSettings={...DEFAULT_NOTIFICATION_SETTINGS,...ld('notification_settings',{})};
 let agentUsage={...DEFAULT_AGENT_USAGE,...ld('agent_usage',{})};
+let habitMetricRanges={frequent:'month',topHours:'month',category:'month',activeTime:'month',activeDays:'month',...ld('habit_metric_ranges',{})};
 if(!agentChats.length){const legacy=ld('agent_msgs',[]);activeAgentChatId='chat_'+Date.now();agentChats=[{id:activeAgentChatId,title:'Current chat',created:Date.now(),updated:Date.now(),messages:legacy}];sd('agent_chats',agentChats);sd('agent_active_chat',activeAgentChatId);}
 if(!agentChats.some(c=>c.id===activeAgentChatId)){activeAgentChatId=agentChats[0].id;sd('agent_active_chat',activeAgentChatId);}
 let selectedProgressGoalId=ld('progress_goal',null);
@@ -1203,6 +1206,7 @@ function autoSelectSkills(force=false){if(!force&&evSelectedSkills.length)return
   }).join(' ');const notes=document.getElementById('ev-notes')?.value||'';const categoryText=CATS[selCat]?.label||selCat;const goalTypeText=goalType(selEventGType)?.label||selEventGType;let suggested=[...new Set(skillSuggestionPool({title,notes,goalText,categoryText,goalTypeText}))].filter(s=>allSkills.includes(s));const fallback=['Time Management','Attention to Detail','Communication','Problem Solving','Discipline'];fallback.forEach(s=>{if(suggested.length<4&&allSkills.includes(s)&&!suggested.includes(s))suggested.push(s);});evSelectedSkills=suggested.slice(0,4);renderSkillTags();renderSelectedSkills();}
 
 /* ── HABITS ── */
+function setHabitMetricRange(metric,range){habitMetricRanges={...habitMetricRanges,[metric]:range};sd('habit_metric_ranges',habitMetricRanges);renderHabits();}
 function renderHabits(){
   const el=document.getElementById('habits-content');
   const eventDays=[...new Set(events.map(ev=>ev.date))].sort();
@@ -1211,22 +1215,22 @@ function renderHabits(){
   while(eventDaySet.has(fd(streakDay))){currentStreak++;streakDay=ad(streakDay,-1);}
   let bestStreak=0,run=0,prev=null;
   eventDays.forEach(ds=>{const d=pd(ds);if(prev&&Math.round((d-prev)/864e5)===1)run++;else run=1;bestStreak=Math.max(bestStreak,run);prev=d;});
-  const titleStats={};events.forEach(ev=>{const key=ev.title.toLowerCase().trim();if(!key)return;titleStats[key]=titleStats[key]||{name:ev.title.trim(),count:0,mins:0};titleStats[key].count++;titleStats[key].mins+=(ev.dur||60);});
-  const repeated=Object.values(titleStats).filter(a=>a.count>1).sort((a,b)=>b.count-a.count||b.mins-a.mins).slice(0,4);
-  const usedTitles=new Set(repeated.map(a=>a.name.toLowerCase().trim()));
+  const activityColors=['#2C5F2E','#185FA5','#BA7517','#534AB7'];
+  function rangeEvents(metric){const range=habitMetricRanges[metric]||'month',end=new Date(today),start=new Date(today);if(range==='week')start.setDate(start.getDate()-6);else if(range==='year')start.setDate(start.getDate()-364);else start.setDate(start.getDate()-29);return events.filter(ev=>{const d=pd(ev.date);return d>=start&&d<=end;});}
+  function rangePill(metric){const value=habitMetricRanges[metric]||'month';return'<select class="metric-range-select" aria-label="Time range" onchange="setHabitMetricRange(\''+metric+'\',this.value)">'+['week','month','year'].map(r=>'<option value="'+r+'" '+(value===r?'selected':'')+'>'+r+'</option>').join('')+'</select>';}
   function activityBucket(ev){const txt=(ev.title+' '+(ev.notes||'')).toLowerCase(),cat=CATS[ev.cat]?.label||'Personal';if(/doctor|dentist|therapy|therapist|medical|checkup|appointment|clinic|health/.test(txt))return'Doctor visits';if(/meeting|meet |met |call|1:1|zoom|interview|coffee/.test(txt))return cat+' meetings';if(/gym|workout|lift|run|cardio|fitness|bench|squat|push day|pull day/.test(txt))return'Fitness sessions';if(/paper|study|homework|class|lecture|exam|reading|school|academic/.test(txt))return'Academic work';if(/budget|finance|bill|bank|saving|money|tax/.test(txt))return'Finance check-ins';if(/trip|travel|drive|airport|flight|errand|order|pickup|renew/.test(txt))return'Errands & trips';return cat+' activities';}
-  const grouped={};events.filter(ev=>!usedTitles.has(ev.title.toLowerCase().trim())).forEach(ev=>{const name=activityBucket(ev);grouped[name]=grouped[name]||{name,count:0,mins:0};grouped[name].count++;grouped[name].mins+=(ev.dur||60);});
-  const top=[...repeated,...Object.values(grouped).sort((a,b)=>b.count-a.count||b.mins-a.mins)].slice(0,4);
-  const catCount={},catTime={};events.forEach(ev=>{catCount[ev.cat]=(catCount[ev.cat]||0)+1;catTime[ev.cat]=(catTime[ev.cat]||0)+(ev.dur||60);});
-  const total=events.length;
+  function topActivities(src){const titleStats={};src.forEach(ev=>{const key=ev.title.toLowerCase().trim();if(!key)return;titleStats[key]=titleStats[key]||{name:ev.title.trim(),count:0,mins:0};titleStats[key].count++;titleStats[key].mins+=(ev.dur||60);});const repeated=Object.values(titleStats).filter(a=>a.count>1).sort((a,b)=>b.count-a.count||b.mins-a.mins).slice(0,4),usedTitles=new Set(repeated.map(a=>a.name.toLowerCase().trim())),grouped={};src.filter(ev=>!usedTitles.has(ev.title.toLowerCase().trim())).forEach(ev=>{const name=activityBucket(ev);grouped[name]=grouped[name]||{name,count:0,mins:0};grouped[name].count++;grouped[name].mins+=(ev.dur||60);});return[...repeated,...Object.values(grouped).sort((a,b)=>b.count-a.count||b.mins-a.mins)].slice(0,4);}
+  const top=topActivities(rangeEvents('frequent'));
+  const topHours=topActivities(rangeEvents('topHours'));
+  const catCount={},catTime={};rangeEvents('category').forEach(ev=>{catCount[ev.cat]=(catCount[ev.cat]||0)+1;catTime[ev.cat]=(catTime[ev.cat]||0)+(ev.dur||60);});
   const totalCatTime=Math.max(1,Object.values(catTime).reduce((s,n)=>s+n,0));
   const timeBuckets=new Array(9).fill(0);
   const timeLbls=['6am','8am','10am','12pm','2pm','4pm','6pm','8pm','10pm'];
-  events.forEach(ev=>{if(!ev.time)return;const h=parseInt(ev.time);const b=Math.floor((h-6)/2);if(b>=0&&b<9)timeBuckets[b]++;});
+  rangeEvents('activeTime').forEach(ev=>{if(!ev.time)return;const h=parseInt(ev.time);const b=Math.floor((h-6)/2);if(b>=0&&b<9)timeBuckets[b]++;});
   const maxT=Math.max(...timeBuckets,1);
   const dowCount=new Array(7).fill(0);
   const dowLbls=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  events.forEach(ev=>{dowCount[pd(ev.date).getDay()]++;});
+  rangeEvents('activeDays').forEach(ev=>{dowCount[pd(ev.date).getDay()]++;});
   const maxD=Math.max(...dowCount,1);
   const heatData={};events.forEach(ev=>{heatData[ev.date]=(heatData[ev.date]||0)+1;});
   const maxH=Math.max(...Object.values(heatData),1);
@@ -1250,24 +1254,24 @@ function renderHabits(){
   let pieStart=0;
   const pieStops=catEntries.map(([cat,mins])=>{const pct=mins/totalCatTime*100,stop=(pieStart+pct);const color=CATS[cat]?.color||'#999';const seg=color+' '+pieStart.toFixed(2)+'% '+stop.toFixed(2)+'%';pieStart=stop;return seg;}).join(',')||'var(--surface2) 0% 100%';
   const pieLegend=catEntries.length?catEntries.map(([cat,mins])=>{const pct=Math.round(mins/totalCatTime*100);return'<div class="cat-legend-row"><span class="cat-legend-dot" style="background:'+(CATS[cat]?.color||'#999')+'"></span><span class="cat-legend-name">'+(CATS[cat]?.label||cat)+'</span><span class="cat-legend-pct">'+pct+'%</span></div>';}).join(''):'<div class="empty-goals" style="padding:.5rem;text-align:left">No category time yet</div>';
-  const activityColors=['#2C5F2E','#185FA5','#BA7517','#534AB7'],topActivityMins=top.reduce((s,a)=>s+a.mins,0)||1;let actPieStart=0;
-  const activityPieStops=top.map((a,i)=>{const pct=a.mins/topActivityMins*100,stop=actPieStart+pct,color=activityColors[i%activityColors.length],seg=color+' '+actPieStart.toFixed(2)+'% '+stop.toFixed(2)+'%';actPieStart=stop;return seg;}).join(',')||'var(--surface2) 0% 100%';
-  const activityKey=top.map((a,i)=>'<div class="activity-key-row"><span class="activity-key-dot" style="background:'+activityColors[i%activityColors.length]+'"></span><span class="activity-key-name">'+esc(a.name)+'</span><span class="activity-key-time">'+Math.round(a.mins/60)+'h</span></div>').join('')||'<div class="empty-goals" style="padding:.5rem;text-align:left">No repeated activity time yet</div>';
+  const topActivityMins=topHours.reduce((s,a)=>s+a.mins,0)||1;let actPieStart=0;
+  const activityPieStops=topHours.map((a,i)=>{const pct=a.mins/topActivityMins*100,stop=actPieStart+pct,color=activityColors[i%activityColors.length],seg=color+' '+actPieStart.toFixed(2)+'% '+stop.toFixed(2)+'%';actPieStart=stop;return seg;}).join(',')||'var(--surface2) 0% 100%';
+  const activityKey=topHours.map((a,i)=>'<div class="activity-key-row"><span class="activity-key-dot" style="background:'+activityColors[i%activityColors.length]+'"></span><span class="activity-key-name">'+esc(a.name)+'</span><span class="activity-key-time">'+Math.round(a.mins/60)+'h</span></div>').join('')||'<div class="empty-goals" style="padding:.5rem;text-align:left">No repeated activity time yet</div>';
 
   el.innerHTML=
     '<div class="page-header" style="margin-bottom:0"><div class="page-title">My <span>Habits</span></div></div>'+
     '<div class="habits-top-grid">'+
-    '<div class="panel"><div class="panel-title">Most frequent activities</div>'+(top.length?'<div class="activity-focus">'+top.map((a,i)=>'<div class="activity-row"><span class="activity-rank" style="color:'+activityColors[i%activityColors.length]+'">'+(i+1)+'</span><span class="activity-name">'+esc(a.name)+'</span><div class="activity-bar-wrap"><div class="activity-bar-fill" style="width:'+Math.round(a.count/top[0].count*100)+'%;background:'+activityColors[i%activityColors.length]+'"></div></div><span class="activity-count">'+a.count+'x</span></div>').join('')+'</div>':'<div class="empty-goals">Add more events to see patterns</div>')+'</div>'+
-    '<div class="panel"><div class="panel-title">Hours by top activities</div><div class="activity-pie-wrap"><div class="activity-pie" style="background:conic-gradient('+activityPieStops+')"><div class="activity-pie-center">'+Math.round(topActivityMins/60)+'h</div></div></div><div class="activity-key">'+activityKey+'</div></div>'+
-    '<div class="panel"><div class="panel-title">Time by category</div><div class="pie-wrap"><div class="pie-chart" style="background:conic-gradient('+pieStops+')"><div class="pie-center">'+Math.round(totalCatTime/60)+'h<br>total</div></div><div class="pie-legend">'+pieLegend+'</div></div></div>'+
+    '<div class="panel"><div class="panel-head"><div class="panel-title">Most frequent activities</div>'+rangePill('frequent')+'</div>'+(top.length?'<div class="activity-focus">'+top.map((a,i)=>'<div class="activity-row"><span class="activity-rank" style="color:'+activityColors[i%activityColors.length]+'">'+(i+1)+'</span><span class="activity-name">'+esc(a.name)+'</span><div class="activity-bar-wrap"><div class="activity-bar-fill" style="width:'+Math.round(a.count/top[0].count*100)+'%;background:'+activityColors[i%activityColors.length]+'"></div></div><span class="activity-count">'+a.count+'x</span></div>').join('')+'</div>':'<div class="empty-goals">Add more events to see patterns</div>')+'</div>'+
+    '<div class="panel"><div class="panel-head"><div class="panel-title">Hours by top activities</div>'+rangePill('topHours')+'</div><div class="activity-pie-wrap"><div class="activity-pie" style="background:conic-gradient('+activityPieStops+')"><div class="activity-pie-center">'+Math.round(topActivityMins/60)+'h</div></div></div><div class="activity-key">'+activityKey+'</div></div>'+
+    '<div class="panel"><div class="panel-head"><div class="panel-title">Time by category</div>'+rangePill('category')+'</div><div class="pie-wrap"><div class="pie-chart" style="background:conic-gradient('+pieStops+')"><div class="pie-center">'+Math.round(totalCatTime/60)+'h<br>total</div></div><div class="pie-legend">'+pieLegend+'</div></div></div>'+
     '<div class="streak-card"><div class="streak-label">Current Streak</div><div><div class="streak-fire">&#128293;</div><div class="streak-number">'+currentStreak+'</div><div class="streak-days">day'+(currentStreak!==1?'s':'')+'</div></div><div class="streak-best">Best streak: '+bestStreak+' day'+(bestStreak!==1?'s':'')+'</div></div>'+
     '</div>'+
     '<div class="two-col"><div class="activity-hours-grid heatmap-pair">'+
     '<div class="panel"><div class="panel-title">'+monthNames[lastMonthStart.getMonth()]+' heatmap</div>'+renderHeatRows(lastMonthRows)+'</div>'+
     '<div class="panel"><div class="panel-head"><div class="panel-title">'+monthNames[currentMonthStart.getMonth()]+' activity</div><div class="activity-ticker-wrap"><span class="activity-ticker-label">vs last month</span><div class="activity-ticker '+tickerClass+'">'+tickerText+'</div></div></div>'+renderHeatRows(currentMonthRows)+'</div></div>'+
     '<div class="habit-chart-stack">'+
-    '<div class="panel"><div class="panel-title">When you\'re most active</div><div class="time-chart">'+timeBuckets.map((cnt,i)=>'<div class="time-col"><span style="font-size:9px;color:var(--text-muted)">'+(cnt||'')+'</span><div class="time-bar" style="height:'+Math.max(2,Math.round(cnt/maxT*60))+'px;background:'+(cnt===Math.max(...timeBuckets)?'var(--accent)':'var(--accent-light)')+'"></div><span class="time-label">'+timeLbls[i]+'</span></div>').join('')+'</div></div>'+
-    '<div class="panel"><div class="panel-title">Most active days</div><div class="bar-chart">'+dowCount.map((cnt,i)=>'<div class="bar-col"><span class="bar-val">'+(cnt||'')+'</span><div class="bar-fill" style="height:'+Math.max(2,Math.round(cnt/maxD*90))+'px;background:'+(cnt===Math.max(...dowCount)?'var(--accent)':'var(--accent-light)')+'"></div><span class="bar-label">'+dowLbls[i]+'</span></div>').join('')+'</div></div></div></div>'+
+    '<div class="panel"><div class="panel-head"><div class="panel-title">When you\'re most active</div>'+rangePill('activeTime')+'</div><div class="time-chart">'+timeBuckets.map((cnt,i)=>'<div class="time-col"><span style="font-size:9px;color:var(--text-muted)">'+(cnt||'')+'</span><div class="time-bar" style="height:'+Math.max(2,Math.round(cnt/maxT*60))+'px;background:'+(cnt===Math.max(...timeBuckets)?'var(--accent)':'var(--accent-light)')+'"></div><span class="time-label">'+timeLbls[i]+'</span></div>').join('')+'</div></div>'+
+    '<div class="panel"><div class="panel-head"><div class="panel-title">Most active days</div>'+rangePill('activeDays')+'</div><div class="bar-chart">'+dowCount.map((cnt,i)=>'<div class="bar-col"><span class="bar-val">'+(cnt||'')+'</span><div class="bar-fill" style="height:'+Math.max(2,Math.round(cnt/maxD*90))+'px;background:'+(cnt===Math.max(...dowCount)?'var(--accent)':'var(--accent-light)')+'"></div><span class="bar-label">'+dowLbls[i]+'</span></div>').join('')+'</div></div></div></div>'+
     (topSkills.length?'<div class="panel"><div class="panel-title">Skills practiced most</div>'+topSkills.map(([sk,cnt],i)=>'<div class="activity-row"><span class="activity-rank">'+(i+1)+'</span><span class="activity-name">'+sk+'</span><div class="activity-bar-wrap"><div class="activity-bar-fill" style="width:'+Math.round(cnt/topSkills[0][1]*100)+'%;background:var(--purple)"></div></div><span class="activity-count">'+cnt+'x</span></div>').join('')+'</div>':'');
 }
 
