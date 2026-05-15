@@ -174,6 +174,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 #agent-content{overflow:hidden;padding:1rem;height:100%;gap:0}
 .two-col{display:grid;grid-template-columns:minmax(260px,.42fr) minmax(0,1.58fr);gap:1.25rem;align-items:start}
 .habits-top-grid{display:grid;grid-template-columns:minmax(320px,1.1fr) minmax(240px,.8fr) minmax(280px,1fr) minmax(160px,.5fr);gap:1.25rem;align-items:stretch}
+.habit-header-row{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:0}
+.habit-customize-wrap{position:relative}
+.habit-customize-pill{border:none;background:var(--accent-light);color:var(--accent);border-radius:999px;padding:8px 13px;font:800 12px 'DM Sans',sans-serif;letter-spacing:.02em;cursor:pointer}
+.habit-customize-panel{display:none;position:absolute;top:calc(100% + 8px);right:0;width:260px;background:var(--surface);border:.5px solid var(--border-strong);border-radius:14px;padding:12px;box-shadow:0 14px 36px rgba(0,0,0,.12);z-index:20}
+.habit-customize-panel.open{display:block}
+.habit-toggle-grid{display:grid;grid-template-columns:1fr;gap:7px}
+.habit-toggle-grid label{display:flex;align-items:center;gap:8px;background:var(--bg);border:.5px solid var(--border);border-radius:10px;padding:8px 9px;font:800 12px 'DM Sans',sans-serif;color:var(--text-muted);cursor:pointer}
+.habit-dynamic-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.25rem;align-items:stretch}
+.habit-card-wide{grid-column:span 2}
 .panel{background:var(--surface);border-radius:var(--r);border:.5px solid var(--border-strong);padding:1.25rem}
 .panel-title{font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text);margin-bottom:1rem}
 .panel-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:1rem}
@@ -477,6 +486,8 @@ select.form-input{appearance:none}
   .nav-tabs{order:0;width:auto;overflow-x:auto;padding-bottom:2px;gap:4px}
   .nav-tab{white-space:nowrap}
   .nav-tab{font-size:15px;border-width:2px;border-radius:10px;padding:8px 9px}
+  .habit-card-wide{grid-column:auto}
+  .habit-customize-panel{right:auto;left:0}
   .btn-primary{font-size:15px;padding:10px 12px;border-radius:9px}
   .login-btn{font-size:15px;padding:10px 12px;border-radius:9px}
   .page.active{display:flex}
@@ -970,6 +981,7 @@ const FRIENDS_FAMILY_EMAILS=['magstwoody@gmail.com','chansuh@gmail.com'];
 const FRIENDS_FAMILY_MONTHLY_AGENT_LIMIT_USD=.20;
 const BETA_MONTHLY_AGENT_LIMIT_USD=.10;
 const DEFAULT_AGENT_USAGE={plan:'free',promptsUsed:0,monthlySpend:{}};
+const DEFAULT_HABIT_SECTIONS={frequent:true,topHours:true,category:true,streak:true,heatmaps:true,activeTime:true,activeDays:true,skills:true};
 let viewDate=new Date(today),miniDate=new Date(today),currentView='month',currentPage='calendar';
 let activeEvId=null,editingId=null,editingGoalId=null,editingGoalTypeId=null,selCat='work',selGType='personal',selEventGType='personal';
 let evSelectedSkills=[];
@@ -1008,6 +1020,7 @@ let userProfile={...DEFAULT_USER_PROFILE,...ld('user_profile',{})};
 let notificationSettings={...DEFAULT_NOTIFICATION_SETTINGS,...ld('notification_settings',{})};
 let agentUsage={...DEFAULT_AGENT_USAGE,...ld('agent_usage',{})};
 let habitMetricRanges={frequent:'month',topHours:'month',category:'month',activeTime:'month',activeDays:'month',...ld('habit_metric_ranges',{})};
+let habitSections={...DEFAULT_HABIT_SECTIONS,...ld('habit_sections',{})};
 if(!agentChats.length){const legacy=ld('agent_msgs',[]);activeAgentChatId='chat_'+Date.now();agentChats=[{id:activeAgentChatId,title:'Current chat',created:Date.now(),updated:Date.now(),messages:legacy}];sd('agent_chats',agentChats);sd('agent_active_chat',activeAgentChatId);}
 if(!agentChats.some(c=>c.id===activeAgentChatId)){activeAgentChatId=agentChats[0].id;sd('agent_active_chat',activeAgentChatId);}
 let selectedProgressGoalId=ld('progress_goal',null);
@@ -1017,8 +1030,8 @@ let firebaseUser=null;
 let cloudReady=false;
 let confirmAction=null;
 
-function currentAppState(){return{goals,events,goalTypes,agentChats,activeAgentChatId,agentMemory,userProfile,notificationSettings,agentUsage};}
-function saveLocalState(){sd('goals',goals);sd('ev',events);sd('goal_types',goalTypes);sd('agent_chats',agentChats);sd('agent_active_chat',activeAgentChatId);sd('agent_memory',agentMemory);sd('user_profile',userProfile);sd('notification_settings',notificationSettings);sd('agent_usage',agentUsage);}
+function currentAppState(){return{goals,events,goalTypes,agentChats,activeAgentChatId,agentMemory,userProfile,notificationSettings,agentUsage,habitSections};}
+function saveLocalState(){sd('goals',goals);sd('ev',events);sd('goal_types',goalTypes);sd('agent_chats',agentChats);sd('agent_active_chat',activeAgentChatId);sd('agent_memory',agentMemory);sd('user_profile',userProfile);sd('notification_settings',notificationSettings);sd('agent_usage',agentUsage);sd('habit_sections',habitSections);}
 async function saveCloudState(){if(firebaseUser&&window.goaltrackFirebase?.enabled){try{await window.goaltrackFirebase.saveState(currentAppState());}catch(err){console.warn('Firebase save failed',err);}}}
 function persistState(){saveLocalState();saveCloudState();}
 function updateLandingUI(){const signedIn=!!firebaseUser;document.getElementById('landing-page')?.classList.toggle('hidden',signedIn);document.getElementById('app-shell')?.classList.toggle('locked',!signedIn);document.querySelector('.nav-tabs')?.classList.toggle('landing-hidden',!signedIn);}
@@ -1082,6 +1095,7 @@ async function onGoalTrackFirebaseAuth(user){
       notificationSettings={...DEFAULT_NOTIFICATION_SETTINGS,...(cloud.notificationSettings||{})};
       const existingUsage=cloud.agentUsage||{};
       agentUsage={...DEFAULT_AGENT_USAGE,...existingUsage,monthlySpend:{...(DEFAULT_AGENT_USAGE.monthlySpend||{}),...(existingUsage.monthlySpend||{})}};
+      habitSections={...DEFAULT_HABIT_SECTIONS,...(cloud.habitSections||habitSections||{})};
       if(!existingUsage.plan&&!isCreatorAccount())agentUsage.plan='beta_pro';
       if(isCreatorAccount())agentUsage.plan='creator';
       if(isFriendsFamilyAccount())agentUsage.plan='friends_family';
@@ -1251,6 +1265,8 @@ function autoSelectSkills(force=false){if(!force&&evSelectedSkills.length)return
 
 /* ── HABITS ── */
 function setHabitMetricRange(metric,range){habitMetricRanges={...habitMetricRanges,[metric]:range};sd('habit_metric_ranges',habitMetricRanges);renderHabits();}
+function toggleHabitCustomize(){document.getElementById('habit-customize-panel')?.classList.toggle('open');}
+function setHabitSection(section,on){habitSections={...habitSections,[section]:!!on};saveLocalState();saveCloudState();renderHabits();}
 function renderHabits(){
   const el=document.getElementById('habits-content');
   const eventDays=[...new Set(events.map(ev=>ev.date))].sort();
@@ -1301,22 +1317,21 @@ function renderHabits(){
   const topActivityMins=topHours.reduce((s,a)=>s+a.mins,0)||1;let actPieStart=0;
   const activityPieStops=topHours.map((a,i)=>{const pct=a.mins/topActivityMins*100,stop=actPieStart+pct,color=activityColors[i%activityColors.length],seg=color+' '+actPieStart.toFixed(2)+'% '+stop.toFixed(2)+'%';actPieStart=stop;return seg;}).join(',')||'var(--surface2) 0% 100%';
   const activityKey=topHours.map((a,i)=>'<div class="activity-key-row"><span class="activity-key-dot" style="background:'+activityColors[i%activityColors.length]+'"></span><span class="activity-key-name">'+esc(a.name)+'</span><span class="activity-key-time">'+Math.round(a.mins/60)+'h</span></div>').join('')||'<div class="empty-goals" style="padding:.5rem;text-align:left">No repeated activity time yet</div>';
+  const sectionLabels={frequent:'Most frequent activities',topHours:'Hours by top activities',category:'Time by category',streak:'Current streak',heatmaps:'Monthly heatmaps',activeTime:"When you're most active",activeDays:'Most active days',skills:'Skills practiced most'};
+  const customizePanel='<div class="habit-customize-wrap"><button class="habit-customize-pill" onclick="toggleHabitCustomize()">Customize</button><div class="habit-customize-panel" id="habit-customize-panel"><div class="habit-toggle-grid">'+Object.entries(sectionLabels).map(([key,label])=>'<label><input type="checkbox" '+(habitSections[key]!==false?'checked':'')+' onchange="setHabitSection(\''+key+'\',this.checked)"> '+label+'</label>').join('')+'</div></div></div>';
+  const cards=[];
+  if(habitSections.frequent!==false)cards.push('<div class="panel"><div class="panel-head"><div class="panel-title">Most frequent activities</div>'+rangePill('frequent')+'</div>'+(top.length?'<div class="activity-focus">'+top.map((a,i)=>'<div class="activity-row"><span class="activity-rank" style="color:'+activityColors[i%activityColors.length]+'">'+(i+1)+'</span><span class="activity-name">'+esc(a.name)+'</span><div class="activity-bar-wrap"><div class="activity-bar-fill" style="width:'+Math.round(a.count/top[0].count*100)+'%;background:'+activityColors[i%activityColors.length]+'"></div></div><span class="activity-count">'+a.count+'x</span></div>').join('')+'</div>':'<div class="empty-goals">Add more events to see patterns</div>')+'</div>');
+  if(habitSections.topHours!==false)cards.push('<div class="panel"><div class="panel-head"><div class="panel-title">Hours by top activities</div>'+rangePill('topHours')+'</div><div class="activity-pie-wrap"><div class="activity-pie" style="background:conic-gradient('+activityPieStops+')"><div class="activity-pie-center">'+Math.round(topActivityMins/60)+'h</div></div></div><div class="activity-key">'+activityKey+'</div></div>');
+  if(habitSections.category!==false)cards.push('<div class="panel"><div class="panel-head"><div class="panel-title">Time by category</div>'+rangePill('category')+'</div><div class="pie-wrap"><div class="pie-chart" style="background:conic-gradient('+pieStops+')"><div class="pie-center">'+Math.round(totalCatTime/60)+'h<br>total</div></div><div class="pie-legend">'+pieLegend+'</div></div></div>');
+  if(habitSections.streak!==false)cards.push('<div class="streak-card"><div class="streak-label">Current Streak</div><div><div class="streak-fire">&#128293;</div><div class="streak-number">'+currentStreak+'</div><div class="streak-days">day'+(currentStreak!==1?'s':'')+'</div></div><div class="streak-best">Best streak: '+bestStreak+' day'+(bestStreak!==1?'s':'')+'</div></div>');
+  if(habitSections.heatmaps!==false)cards.push('<div class="panel habit-card-wide"><div class="activity-hours-grid heatmap-pair"><div><div class="panel-title">'+monthNames[lastMonthStart.getMonth()]+' heatmap</div>'+renderHeatRows(lastMonthRows)+'</div><div><div class="panel-head"><div class="panel-title">'+monthNames[currentMonthStart.getMonth()]+' activity</div><div class="activity-ticker-wrap"><span class="activity-ticker-label">vs last month</span><div class="activity-ticker '+tickerClass+'">'+tickerText+'</div></div></div>'+renderHeatRows(currentMonthRows)+'</div></div></div>');
+  if(habitSections.activeTime!==false)cards.push('<div class="panel"><div class="panel-head"><div class="panel-title">When you\'re most active</div>'+rangePill('activeTime')+'</div><div class="time-chart">'+timeBuckets.map((cnt,i)=>'<div class="time-col"><span style="font-size:9px;color:var(--text-muted)">'+(cnt||'')+'</span><div class="time-bar" style="height:'+Math.max(2,Math.round(cnt/maxT*60))+'px;background:'+(cnt===Math.max(...timeBuckets)?'var(--accent)':'var(--accent-light)')+'"></div><span class="time-label">'+timeLbls[i]+'</span></div>').join('')+'</div></div>');
+  if(habitSections.activeDays!==false)cards.push('<div class="panel"><div class="panel-head"><div class="panel-title">Most active days</div>'+rangePill('activeDays')+'</div><div class="bar-chart">'+dowCount.map((cnt,i)=>'<div class="bar-col"><span class="bar-val">'+(cnt||'')+'</span><div class="bar-fill" style="height:'+Math.max(2,Math.round(cnt/maxD*90))+'px;background:'+(cnt===Math.max(...dowCount)?'var(--accent)':'var(--accent-light)')+'"></div><span class="bar-label">'+dowLbls[i]+'</span></div>').join('')+'</div></div>');
+  if(habitSections.skills!==false&&topSkills.length)cards.push('<div class="panel"><div class="panel-title">Skills practiced most</div>'+topSkills.map(([sk,cnt],i)=>'<div class="activity-row"><span class="activity-rank">'+(i+1)+'</span><span class="activity-name">'+sk+'</span><div class="activity-bar-wrap"><div class="activity-bar-fill" style="width:'+Math.round(cnt/topSkills[0][1]*100)+'%;background:var(--purple)"></div></div><span class="activity-count">'+cnt+'x</span></div>').join('')+'</div>');
 
   el.innerHTML=
-    '<div class="page-header" style="margin-bottom:0"><div class="page-title">My <span>Habits</span></div></div>'+
-    '<div class="habits-top-grid">'+
-    '<div class="panel"><div class="panel-head"><div class="panel-title">Most frequent activities</div>'+rangePill('frequent')+'</div>'+(top.length?'<div class="activity-focus">'+top.map((a,i)=>'<div class="activity-row"><span class="activity-rank" style="color:'+activityColors[i%activityColors.length]+'">'+(i+1)+'</span><span class="activity-name">'+esc(a.name)+'</span><div class="activity-bar-wrap"><div class="activity-bar-fill" style="width:'+Math.round(a.count/top[0].count*100)+'%;background:'+activityColors[i%activityColors.length]+'"></div></div><span class="activity-count">'+a.count+'x</span></div>').join('')+'</div>':'<div class="empty-goals">Add more events to see patterns</div>')+'</div>'+
-    '<div class="panel"><div class="panel-head"><div class="panel-title">Hours by top activities</div>'+rangePill('topHours')+'</div><div class="activity-pie-wrap"><div class="activity-pie" style="background:conic-gradient('+activityPieStops+')"><div class="activity-pie-center">'+Math.round(topActivityMins/60)+'h</div></div></div><div class="activity-key">'+activityKey+'</div></div>'+
-    '<div class="panel"><div class="panel-head"><div class="panel-title">Time by category</div>'+rangePill('category')+'</div><div class="pie-wrap"><div class="pie-chart" style="background:conic-gradient('+pieStops+')"><div class="pie-center">'+Math.round(totalCatTime/60)+'h<br>total</div></div><div class="pie-legend">'+pieLegend+'</div></div></div>'+
-    '<div class="streak-card"><div class="streak-label">Current Streak</div><div><div class="streak-fire">&#128293;</div><div class="streak-number">'+currentStreak+'</div><div class="streak-days">day'+(currentStreak!==1?'s':'')+'</div></div><div class="streak-best">Best streak: '+bestStreak+' day'+(bestStreak!==1?'s':'')+'</div></div>'+
-    '</div>'+
-    '<div class="two-col"><div class="activity-hours-grid heatmap-pair">'+
-    '<div class="panel"><div class="panel-title">'+monthNames[lastMonthStart.getMonth()]+' heatmap</div>'+renderHeatRows(lastMonthRows)+'</div>'+
-    '<div class="panel"><div class="panel-head"><div class="panel-title">'+monthNames[currentMonthStart.getMonth()]+' activity</div><div class="activity-ticker-wrap"><span class="activity-ticker-label">vs last month</span><div class="activity-ticker '+tickerClass+'">'+tickerText+'</div></div></div>'+renderHeatRows(currentMonthRows)+'</div></div>'+
-    '<div class="habit-chart-stack">'+
-    '<div class="panel"><div class="panel-head"><div class="panel-title">When you\'re most active</div>'+rangePill('activeTime')+'</div><div class="time-chart">'+timeBuckets.map((cnt,i)=>'<div class="time-col"><span style="font-size:9px;color:var(--text-muted)">'+(cnt||'')+'</span><div class="time-bar" style="height:'+Math.max(2,Math.round(cnt/maxT*60))+'px;background:'+(cnt===Math.max(...timeBuckets)?'var(--accent)':'var(--accent-light)')+'"></div><span class="time-label">'+timeLbls[i]+'</span></div>').join('')+'</div></div>'+
-    '<div class="panel"><div class="panel-head"><div class="panel-title">Most active days</div>'+rangePill('activeDays')+'</div><div class="bar-chart">'+dowCount.map((cnt,i)=>'<div class="bar-col"><span class="bar-val">'+(cnt||'')+'</span><div class="bar-fill" style="height:'+Math.max(2,Math.round(cnt/maxD*90))+'px;background:'+(cnt===Math.max(...dowCount)?'var(--accent)':'var(--accent-light)')+'"></div><span class="bar-label">'+dowLbls[i]+'</span></div>').join('')+'</div></div></div></div>'+
-    (topSkills.length?'<div class="panel"><div class="panel-title">Skills practiced most</div>'+topSkills.map(([sk,cnt],i)=>'<div class="activity-row"><span class="activity-rank">'+(i+1)+'</span><span class="activity-name">'+sk+'</span><div class="activity-bar-wrap"><div class="activity-bar-fill" style="width:'+Math.round(cnt/topSkills[0][1]*100)+'%;background:var(--purple)"></div></div><span class="activity-count">'+cnt+'x</span></div>').join('')+'</div>':'');
+    '<div class="habit-header-row"><div class="page-title">My <span>Habits</span></div>'+customizePanel+'</div>'+
+    '<div class="habit-dynamic-grid">'+(cards.length?cards.join(''):'<div class="panel"><div class="empty-goals">Use Customize to turn at least one section back on.</div></div>')+'</div>';
 }
 
 /* ── PROGRESS ── */
