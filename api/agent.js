@@ -3,6 +3,10 @@ const crypto = require("crypto");
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "goaltrack-15e35";
 let certCache = { expires: 0, certs: null };
+const CREATOR_EMAILS = new Set(["tae.suh123@gmail.com", "taesuh123@gmail.com", "infogoaltrack@gmail.com"]);
+const FRIENDS_FAMILY_EMAILS = new Set(["magstwoody@gmail.com", "chansuh@gmail.com"]);
+const FRIENDS_FAMILY_MONTHLY_AGENT_LIMIT_USD = 0.20;
+const BETA_MONTHLY_AGENT_LIMIT_USD = 0.10;
 const MODEL_RATES_PER_MILLION = {
   "gpt-4o-mini": { input: 0.15, output: 0.60 },
   "gpt-4o": { input: 5.00, output: 15.00 }
@@ -16,6 +20,26 @@ function send(res, status, body) {
 
 function b64url(input) {
   return Buffer.from(input.replace(/-/g, "+").replace(/_/g, "/"), "base64");
+}
+
+function normalizeEmail(email) {
+  const value = String(email || "").trim().toLowerCase();
+  const [name, domain] = value.split("@");
+  return domain === "gmail.com" ? `${name.replace(/\./g, "")}@${domain}` : value;
+}
+
+function accountTierForUser(user, requestedTier) {
+  const email = normalizeEmail(user.email);
+  if (CREATOR_EMAILS.has(email)) return "creator";
+  if (FRIENDS_FAMILY_EMAILS.has(email)) return "friends_family";
+  const tier = String(requestedTier || "free").toLowerCase().replace(/[\s-]+/g, "_");
+  return ["pro", "beta_pro", "beta"].includes(tier) ? tier : "free";
+}
+
+function monthlyCapForTier(tier) {
+  if (tier === "friends_family") return FRIENDS_FAMILY_MONTHLY_AGENT_LIMIT_USD;
+  if (tier === "beta" || tier === "beta_pro") return BETA_MONTHLY_AGENT_LIMIT_USD;
+  return Infinity;
 }
 
 async function firebaseCerts() {
@@ -130,8 +154,16 @@ module.exports = async function handler(req, res) {
     const token = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
     const user = await verifyFirebaseToken(token);
     const payload = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
-    const { question, context = {}, history = [] } = payload;
+    const { question, context = {}, history = [], accountTier, monthlySpend = 0 } = payload;
     if (!question || !String(question).trim()) return send(res, 400, { error: "Question is required." });
+    const tier = accountTierForUser(user, accountTier);
+    const cap = monthlyCapForTier(tier);
+    if (Number(monthlySpend) >= cap) {
+      const msg = tier === "friends_family"
+        ? "Friends & Family monthly AI usage is up for this month."
+        : "Your Beta Pro account usage is up for this month. Reach out to the Goaltrack sales team after beta if you want increased usage.";
+      return send(res, 429, { error: msg, tier });
+    }
 
     const scoped = scopeQuestion(question, context);
     if (!scoped.allowed) {
@@ -183,6 +215,7 @@ module.exports = async function handler(req, res) {
       model: OPENAI_MODEL,
       usage: data.usage || {},
       estimatedCostUsd: estimateCost(data),
+      tier,
       relatedGoalIds: scoped.relatedGoals.map(g => g.id),
       memoryPatch: {
         lastRelatedGoals: scoped.relatedGoals.map(g => g.title),

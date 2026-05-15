@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "goaltrack-15e35";
 const DATABASE_ID = process.env.FIRESTORE_DATABASE_ID || "(default)";
 const CREATOR_EMAIL = process.env.CREATOR_EMAIL || "tae.suh123@gmail.com";
+const CREATOR_EMAILS = new Set(["tae.suh123@gmail.com", "taesuh123@gmail.com", "infogoaltrack@gmail.com"]);
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "Goaltrack <onboarding@resend.dev>";
 const RESEND_REPLY_TO = process.env.RESEND_REPLY_TO || "no-reply@goaltrack.app";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
@@ -17,6 +18,12 @@ function send(res, status, body) {
 
 function b64url(value) {
   return Buffer.from(value).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
+
+function normalizeEmail(email) {
+  const value = String(email || "").trim().toLowerCase();
+  const [name, domain] = value.split("@");
+  return domain === "gmail.com" ? `${name.replace(/\./g, "")}@${domain}` : value;
 }
 
 function serviceAccount() {
@@ -345,6 +352,7 @@ async function runDailyBriefings() {
   for (const doc of docs) {
     const uid = uidFromSettingsPath(doc.name);
     const settings = fromFields(doc.fields || {});
+    if (!CREATOR_EMAILS.has(normalizeEmail(settings.email))) settings.messageOnlineEnabled = false;
     if (!uid || !settings.dailyEmailEnabled || !settings.email) continue;
     const dateInfo = dateParts(settings.timezone || "America/New_York");
     const logKey = `daily-email-${dateInfo.iso}`;

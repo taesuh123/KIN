@@ -4,6 +4,7 @@ const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "goaltrack-15e35"
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "Goaltrack <onboarding@resend.dev>";
 const RESEND_REPLY_TO = process.env.RESEND_REPLY_TO || "no-reply@goaltrack.app";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const CREATOR_EMAILS = new Set(["tae.suh123@gmail.com", "taesuh123@gmail.com", "infogoaltrack@gmail.com"]);
 let certCache = { expires: 0, certs: null };
 
 function send(res, status, body) {
@@ -14,6 +15,12 @@ function send(res, status, body) {
 
 function b64url(input) {
   return Buffer.from(input.replace(/-/g, "+").replace(/_/g, "/"), "base64");
+}
+
+function normalizeEmail(email) {
+  const value = String(email || "").trim().toLowerCase();
+  const [name, domain] = value.split("@");
+  return domain === "gmail.com" ? `${name.replace(/\./g, "")}@${domain}` : value;
 }
 
 async function firebaseCerts() {
@@ -206,7 +213,8 @@ module.exports = async function handler(req, res) {
     const user = await verifyFirebaseToken(token);
     const payload = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
     const appState = payload.appState || {};
-    const settings = payload.settings || {};
+    const settings = { ...(payload.settings || {}) };
+    if (!CREATOR_EMAILS.has(normalizeEmail(user.email))) settings.messageOnlineEnabled = false;
     const email = settings.email || user.email;
     const dateInfo = dateParts(settings.timezone || appState.userProfile?.timezone || "America/New_York");
     const text = await buildBriefing({ appState, settings, dateInfo });

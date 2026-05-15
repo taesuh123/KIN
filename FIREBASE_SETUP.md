@@ -33,11 +33,13 @@ FIREBASE_PROJECT_ID=goaltrack-15e35
 
 `OPENAI_MODEL` controls cost. Keep it set to `gpt-4o-mini` for the cheaper model. If you want a stronger but usually more expensive model later, change only that environment variable.
 
-The app is open to any user who signs in with Google. `tae.suh123@gmail.com` and `infogoaltrack@gmail.com` are hard-coded Creator accounts with unlimited access. New accounts are treated as Free accounts by default. Free users get 5 Personal Agent prompts; after that, the UI prompts them to request beta Pro access. Existing Firebase users with saved app data but no saved plan are upgraded to `beta_pro` the next time they sign in during the beta stage.
+The app is open to any user who signs in with Google. `tae.suh123@gmail.com` and `infogoaltrack@gmail.com` are hard-coded Creator accounts with unlimited access. Friends & Family accounts sit below Creator and currently include `magstwoody@gmail.com` and `chansuh@gmail.com`; those accounts have a `$0.20` monthly estimated OpenAI API usage cap. New accounts are treated as Free accounts by default. Free users get 5 Personal Agent prompts; after that, the UI prompts them to request beta Pro access. Existing Firebase users with saved app data but no saved plan are upgraded to `beta_pro` the next time they sign in during the beta stage.
 
-Beta Pro users can keep using the Personal Agent, but the app tracks an estimated OpenAI token cost and caps the beta account at about `$0.30` per month. Creator accounts and future `pro` accounts are unlimited. The agent requires the user to be signed in, checks that the question is related to the user's GoalTrack data or practical planning, and stores agent chats with the rest of the user's app state in Firestore.
+Beta Pro users can keep using the Personal Agent, but the app tracks an estimated OpenAI token cost and caps the beta account at about `$0.10` per month. Creator accounts and future `pro` accounts are unlimited. The agent requires the user to be signed in, checks that the question is related to the user's GoalTrack data or practical planning, and stores agent chats with the rest of the user's app state in Firestore.
 
 The Account profile is also passed into the agent context so responses can become more personalized. Notification preferences are saved now; the Resend/Vercel Cron sender can read `users/{uid}/settings/notifications` when daily briefing delivery is added.
+
+Google Calendar sync is available to signed-in users from Account > Profile. Enable the Google Calendar API in the same Google Cloud project and make sure the OAuth consent screen includes the Calendar read-only scope. The app imports Google Calendar events into Goaltrack and updates previously synced events by Google event ID instead of duplicating them.
 
 ## Daily Snapshot Setup
 
@@ -70,7 +72,7 @@ https://your-vercel-domain.vercel.app/api/daily-briefing?test=creator&secret=YOU
 
 Signed-in users can also send a safer test from the Account > Notifications tab. That button calls `/api/test-briefing` and builds the email from that specific day's calendar events in the selected timezone.
 
-The Account > Notifications Online switch only controls AI generation for the Daily Snapshot personal message. It does not control the main Agent tab. When Online is on, the Personal message box stores the user's prompt, such as "Bible verse about motivation"; Goaltrack generates the final message right before the test or daily snapshot email is sent. The email subject is `Goaltrack Daily Snapshot`, includes habit signals under today's events, and uses `RESEND_REPLY_TO` so replies route to a no-reply address.
+The Account > Notifications Online switch only controls AI generation for the Daily Snapshot personal message and is only available to Creator accounts. It does not control the main Agent tab. When Online is on, the Personal message box stores the user's prompt, such as "Bible verse about motivation"; Goaltrack generates the final message right before the test or daily snapshot email is sent. The email subject is `Goaltrack Daily Snapshot`, includes habit signals under today's events, and uses `RESEND_REPLY_TO` so replies route to a no-reply address.
 
 ## Manual Beta Pro Approval
 
