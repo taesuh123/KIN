@@ -2,7 +2,6 @@ const crypto = require("crypto");
 
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "goaltrack-15e35";
-const AGENT_TESTER_EMAILS = ["chansuh@gmail.com", "thomassuhruth@gmail.com", "tae.suh123@gmail.com"];
 let certCache = { expires: 0, certs: null };
 
 function send(res, status, body) {
@@ -74,7 +73,9 @@ function scopeQuestion(question, context) {
   const hits = qWords.filter(w => topics.has(w));
   const hasGoals = (context.goals || []).some(g => !g.done);
   const generalCoaching = /\b(next|plan|improve|progress|habit|routine|schedule|consistent|consistency|advice|feedback|goal|goals)\b/i.test(question);
-  const allowed = hits.length > 0 || (hasGoals && generalCoaching && !/\b(dog|cat|movie|celebrity|weather|politics|recipe|vacation|game)\b/i.test(question));
+  const practicalPlanning = /\b(grocery|groceries|shopping|meal|protein|budget|study|workout|fitness|schedule|calendar|list)\b/i.test(question);
+  const offTopic = /\b(dog|cat|movie|celebrity|weather|politics|vacation|game)\b/i.test(question);
+  const allowed = hits.length > 0 || ((hasGoals || practicalPlanning) && (generalCoaching || practicalPlanning) && !offTopic);
   const relatedGoals = (context.goals || []).filter(g => {
     const text = words(`${g.title} ${g.desc} ${g.type}`).join(" ");
     return hits.some(h => text.includes(h)) || (allowed && generalCoaching);
@@ -109,17 +110,6 @@ function citationsFromResponse(data) {
   return citations.slice(0, 5);
 }
 
-function normalizeEmailForAccess(email) {
-  const value = String(email || "").trim().toLowerCase();
-  const [name, domain] = value.split("@");
-  return domain === "gmail.com" ? `${name.replace(/\./g, "")}@${domain}` : value;
-}
-
-function canUseAgent(email) {
-  const signedIn = normalizeEmailForAccess(email);
-  return AGENT_TESTER_EMAILS.some(allowed => normalizeEmailForAccess(allowed) === signedIn);
-}
-
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") return send(res, 405, { error: "Use POST" });
   if (!process.env.OPENAI_API_KEY) return send(res, 500, { error: "OpenAI API key is not configured yet." });
@@ -127,9 +117,6 @@ module.exports = async function handler(req, res) {
   try {
     const token = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
     const user = await verifyFirebaseToken(token);
-    if (!canUseAgent(user.email)) {
-      return send(res, 403, { error: "The personal agent is only available to the test account right now." });
-    }
     const payload = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
     const { question, context = {}, history = [] } = payload;
     if (!question || !String(question).trim()) return send(res, 400, { error: "Question is required." });
@@ -138,7 +125,7 @@ module.exports = async function handler(req, res) {
     if (!scoped.allowed) {
       return send(res, 200, {
         blocked: true,
-        text: "I can only help with questions tied to your GoalTrack goals, calendar, habits, progress, or skills. Try asking about one of your active goals or a recent event."
+        text: "I can only help with questions tied to your GoalTrack goals, calendar, habits, progress, skills, or practical planning. What goal or plan would you like to connect this question to?"
       });
     }
 
@@ -147,7 +134,7 @@ module.exports = async function handler(req, res) {
     const input = [
       {
         role: "system",
-        content: [{ type: "input_text", text: `You are GoalTrack's personal agent. Only answer inside the user's GoalTrack context. Use the provided goals, calendar events, habits, progress, and memory. If the answer needs current or factual support, use web search and cite sources. Be practical, specific, and concise. Default model is ${OPENAI_MODEL}.` }]
+        content: [{ type: "input_text", text: `You are GoalTrack's personal agent. Only answer inside the user's GoalTrack context. Use the provided goals, calendar events, habits, progress, and memory. If the answer needs current or factual support, use web search and cite sources. Be practical, specific, and concise. Always end with one thoughtful follow-up question that either deepens the user's original request or asks what else they need help with. Default model is ${OPENAI_MODEL}.` }]
       },
       {
         role: "user",

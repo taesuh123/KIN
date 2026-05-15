@@ -33,7 +33,7 @@ FIREBASE_PROJECT_ID=goaltrack-15e35
 
 `OPENAI_MODEL` controls cost. Keep it set to `gpt-4o-mini` for the cheaper model. If you want a stronger but usually more expensive model later, change only that environment variable.
 
-The app is currently limited to `chansuh@gmail.com` and `thomassuhruth@gmail.com`. The agent requires the user to be signed in with one of those Google accounts, checks that the question is related to the user's GoalTrack data, and stores agent chats with the rest of the user's app state in Firestore.
+The app is open to any user who signs in with Google. New accounts are treated as Free accounts by default. Free users get 5 Personal Agent prompts; after that, the UI prompts them to upgrade to Premium. The agent requires the user to be signed in, checks that the question is related to the user's GoalTrack data or practical planning, and stores agent chats with the rest of the user's app state in Firestore.
 
 The creator-only Account profile is also passed into the agent context so responses can become more personalized. Notification preferences are saved now; the Resend/Vercel Cron sender can read `users/{uid}/settings/notifications` when daily briefing delivery is added.
 

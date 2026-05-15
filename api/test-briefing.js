@@ -1,7 +1,6 @@
 const crypto = require("crypto");
 
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "goaltrack-15e35";
-const CREATOR_EMAILS = (process.env.CREATOR_EMAIL || "tae.suh123@gmail.com,taesuh123@gmail.com").split(",").map(email => email.trim()).filter(Boolean);
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "Goaltrack <onboarding@resend.dev>";
 const RESEND_REPLY_TO = process.env.RESEND_REPLY_TO || "no-reply@goaltrack.app";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
@@ -47,11 +46,6 @@ function normalizeEmail(email) {
   const value = String(email || "").trim().toLowerCase();
   const [name, domain] = value.split("@");
   return domain === "gmail.com" ? `${name.replace(/\./g, "")}@${domain}` : value;
-}
-
-function isCreator(email) {
-  const signedIn = normalizeEmail(email);
-  return CREATOR_EMAILS.some(allowed => normalizeEmail(allowed) === signedIn);
 }
 
 function dateParts(timezone, date = new Date()) {
@@ -210,7 +204,6 @@ module.exports = async function handler(req, res) {
   try {
     const token = (req.headers.authorization || "").replace(/^Bearer\s+/i, "");
     const user = await verifyFirebaseToken(token);
-    if (!isCreator(user.email)) return send(res, 403, { error: "Only the creator can send a test email." });
     const payload = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
     const appState = payload.appState || {};
     const settings = payload.settings || {};
