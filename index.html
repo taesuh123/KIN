@@ -790,8 +790,8 @@ select.form-input{appearance:none}
           <div class="form-group"><label class="form-label">Coaching style</label><input class="form-input" id="profile-style" placeholder="Direct, encouraging, detailed, concise..."/></div>
           <div class="form-group"><label class="form-label">Constraints or preferences</label><textarea class="form-input account-textarea" id="profile-constraints" placeholder="Schedule limits, health notes, school/work priorities, dietary preferences..."></textarea></div>
           <div class="account-switch-row">
-            <div><div class="account-switch-copy">Google Calendar Sync</div><div class="account-switch-sub">Import events from your Google Calendar into Goaltrack. Existing synced events update instead of duplicating.</div></div>
-            <div class="calendar-sync-actions"><button class="btn-cancel" onclick="syncGoogleCalendar()">Sync</button><span class="calendar-sync-status" id="calendar-sync-status"></span></div>
+            <div><div class="account-switch-copy">Google Calendar Sync</div><div class="account-switch-sub">Send Goaltrack events to your primary Google Calendar. Goaltrack will not import Google Calendar events.</div></div>
+            <div class="calendar-sync-actions"><button class="btn-cancel" onclick="syncGoogleCalendar()">Send to Google</button><span class="calendar-sync-status" id="calendar-sync-status"></span></div>
           </div>
         </div>
         <div class="account-panel" id="account-panel-notifications">
@@ -857,32 +857,40 @@ if (hasFirebaseConfig) {
     async signIn() {
       await signInWithPopup(auth, provider);
     },
-    async syncGoogleCalendar(token) {
+    async syncGoogleCalendar(token, goaltrackEvents = [], timezone = "America/New_York") {
       if (!token) throw new Error("Google Calendar permission was not granted.");
-      const start = new Date();
-      start.setDate(start.getDate() - 30);
-      const end = new Date();
-      end.setDate(end.getDate() + 365);
       const headers = { "Authorization": "Bearer " + token };
-      const calResp = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=reader", { headers });
-      const calData = await calResp.json();
-      if (!calResp.ok) throw new Error(calData.error?.message || "Could not read Google Calendar list.");
-      const calendars = (calData.items || []).filter(cal => !cal.hidden && !cal.deleted).slice(0, 10);
-      const synced = [];
-      for (const cal of calendars) {
-        const url = "https://www.googleapis.com/calendar/v3/calendars/" + encodeURIComponent(cal.id) + "/events?" + new URLSearchParams({
-          singleEvents: "true",
-          orderBy: "startTime",
-          timeMin: start.toISOString(),
-          timeMax: end.toISOString(),
-          maxResults: "250"
-        });
-        const evResp = await fetch(url, { headers });
-        const evData = await evResp.json();
-        if (!evResp.ok) continue;
-        (evData.items || []).filter(item => item.status !== "cancelled").forEach(item => synced.push({ ...item, calendarId: cal.id, calendarName: cal.summary || "Google Calendar" }));
+      const results = [];
+      for (const item of goaltrackEvents) {
+        if (!item?.title || !item?.date) continue;
+        const body = goaltrackEventToGoogle(item, timezone);
+        const existingId = item.googleExportEventId;
+        let resp, data, action = existingId ? "updated" : "created";
+        if (existingId) {
+          resp = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events/" + encodeURIComponent(existingId), {
+            method: "PATCH",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+          });
+          data = await resp.json().catch(() => ({}));
+          if (resp.status === 404 || resp.status === 410) {
+            resp = null;
+            data = null;
+            action = "created";
+          }
+        }
+        if (!resp) {
+          resp = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+            method: "POST",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+          });
+          data = await resp.json().catch(() => ({}));
+        }
+        if (!resp.ok) throw new Error(data?.error?.message || "Could not send an event to Google Calendar.");
+        results.push({ localId: item.id, googleEventId: data.id, htmlLink: data.htmlLink, action });
       }
-      return synced;
+      return results;
     },
     async signOut() {
       await signOut(auth);
@@ -1077,9 +1085,11 @@ function openLoginModal(){updateLoginUI();renderAccountTools();document.getEleme
 function closeLoginModal(){document.getElementById('login-modal-bg').classList.remove('open');}
 async function handleGoogleLogin(){try{await window.goaltrackFirebase?.signIn?.();}catch(err){alert('Google sign-in failed: '+(err.message||err));}}
 async function handleGoogleLogout(){try{await window.goaltrackFirebase?.signOut?.();}catch(err){alert('Sign out failed: '+(err.message||err));}}
-function getCalendarAccessToken(){return new Promise((resolve,reject)=>{try{const clientId=window.goaltrackCalendarClientId||'';if(!clientId||clientId.startsWith('PASTE_'))throw new Error('Calendar sync needs your Google OAuth Web Client ID pasted into googleCalendarClientId in index.html.');if(!window.google?.accounts?.oauth2)throw new Error('Google Calendar sign-in tools are still loading. Try again in a few seconds.');const client=google.accounts.oauth2.initTokenClient({client_id:clientId,scope:'https://www.googleapis.com/auth/calendar.readonly',prompt:'consent',callback:resp=>{if(resp.error)reject(new Error(resp.error_description||resp.error));else resolve(resp.access_token);}});client.requestAccessToken();}catch(err){reject(err);}});}
-function googleEventDateTime(item){const allDay=!!item.start?.date&&!item.start?.dateTime,startRaw=item.start?.dateTime||item.start?.date,endRaw=item.end?.dateTime||item.end?.date||startRaw,start=new Date(startRaw),end=new Date(endRaw);if(allDay)return{date:item.start.date,time:'',end:'',dur:0,allDay:true};const pad=n=>String(n).padStart(2,'0'),date=start.getFullYear()+'-'+pad(start.getMonth()+1)+'-'+pad(start.getDate()),time=pad(start.getHours())+':'+pad(start.getMinutes()),endTime=pad(end.getHours())+':'+pad(end.getMinutes());return{date,time,end:endTime,dur:Math.max(15,Math.round((end-start)/60000)||60),allDay:false};}
-async function syncGoogleCalendar(){const status=document.getElementById('calendar-sync-status');try{if(!window.goaltrackFirebase?.currentUser)throw new Error('Sign in first.');if(status)status.textContent='Connecting...';const token=await getCalendarAccessToken();if(status)status.textContent='Syncing...';const items=await window.goaltrackFirebase.syncGoogleCalendar(token);let added=0,updated=0;items.forEach(item=>{if(!item.id||!item.start)return;const dt=googleEventDateTime(item),googleEventId=item.calendarId+'::'+item.id,existing=events.find(e=>e.googleEventId===googleEventId),base={title:item.summary||'(No title)',cat:existing?.cat||'personal',date:dt.date,time:dt.time,end:dt.end,dur:dt.dur,allDay:dt.allDay,notes:item.description||existing?.notes||'',gtype:existing?.gtype||'personal',gid:existing?.gid||null,gids:existing?.gids||[],skills:existing?.skills||[],googleEventId,googleCalendarId:item.calendarId,googleCalendarName:item.calendarName};if(existing){Object.assign(existing,base);updated++;}else{events.push({id:nextId++,...base});added++;}});persistState();render();if(status){status.textContent='Synced '+added+' new, '+updated+' updated';setTimeout(()=>status.textContent='',3200);}}catch(err){if(status){status.textContent=err.message||'Sync failed';setTimeout(()=>status.textContent='',5200);}else alert(err.message||err);}}
+function getCalendarAccessToken(){return new Promise((resolve,reject)=>{try{const clientId=window.goaltrackCalendarClientId||'';if(!clientId||clientId.startsWith('PASTE_'))throw new Error('Calendar sync needs your Google OAuth Web Client ID pasted into googleCalendarClientId in index.html.');if(!window.google?.accounts?.oauth2)throw new Error('Google Calendar sign-in tools are still loading. Try again in a few seconds.');const client=google.accounts.oauth2.initTokenClient({client_id:clientId,scope:'https://www.googleapis.com/auth/calendar.events',prompt:'consent',callback:resp=>{if(resp.error)reject(new Error(resp.error_description||resp.error));else resolve(resp.access_token);}});client.requestAccessToken();}catch(err){reject(err);}});}
+function googleAllDayEnd(date){return fd(ad(pd(date),1));}
+function goaltrackEventToGoogle(ev,timezone){const goalsText=eventGoalTags(ev).map(g=>g.title).join(', '),skillText=(ev.skills||[]).join(', '),notes=[ev.notes||'',goalsText?'Goaltrack goals: '+goalsText:'',skillText?'Skills: '+skillText:'','Synced from Goaltrack.'].filter(Boolean).join('\n\n'),body={summary:ev.title||'Goaltrack event',description:notes,extendedProperties:{private:{goaltrackEventId:String(ev.id)}}};if(ev.allDay||!ev.time){body.start={date:ev.date};body.end={date:googleAllDayEnd(ev.date)};}else{const end=eventEnd(ev)||mt(tm(ev.time)+(ev.dur||60));body.start={dateTime:ev.date+'T'+ev.time+':00',timeZone:timezone};body.end={dateTime:ev.date+'T'+end+':00',timeZone:timezone};}return body;}
+function removeImportedGoogleEventsForCreator(){if(!isCreatorAccount())return 0;const before=events.length;events=events.filter(ev=>!ev.googleEventId);const removed=before-events.length;if(removed){nextId=Math.max(...events.map(e=>Number(e.id)||0),0)+1;persistState();}return removed;}
+async function syncGoogleCalendar(){const status=document.getElementById('calendar-sync-status');try{if(!window.goaltrackFirebase?.currentUser)throw new Error('Sign in first.');const removed=removeImportedGoogleEventsForCreator();if(status)status.textContent=removed?'Removed '+removed+' imported Google event'+(removed!==1?'s':'')+'...':'Connecting...';const token=await getCalendarAccessToken();const exportable=events.filter(ev=>!ev.googleEventId&&ev.title&&ev.date);if(!exportable.length)throw new Error('No Goaltrack events to send yet.');if(status)status.textContent='Sending '+exportable.length+' event'+(exportable.length!==1?'s':'')+'...';const timezone=notificationSettings.timezone||userProfile.timezone||Intl.DateTimeFormat().resolvedOptions().timeZone||'America/New_York';const results=await window.goaltrackFirebase.syncGoogleCalendar(token,exportable,timezone);let created=0,updated=0;results.forEach(item=>{const ev=events.find(e=>String(e.id)===String(item.localId));if(ev){ev.googleExportEventId=item.googleEventId;ev.googleExportLink=item.htmlLink;ev.googleExportedAt=new Date().toISOString();}if(item.action==='updated')updated++;else created++;});persistState();render();if(status){status.textContent='Sent '+created+' new, updated '+updated;setTimeout(()=>status.textContent='',3600);}}catch(err){if(status){status.textContent=err.message||'Sync failed';setTimeout(()=>status.textContent='',5600);}else alert(err.message||err);}}
 async function onGoalTrackFirebaseAuth(user){
   firebaseUser=user||null;cloudReady=!!user;updateLoginUI();
   if(!user)return;
@@ -1100,6 +1110,7 @@ async function onGoalTrackFirebaseAuth(user){
       if(!existingUsage.plan&&!isCreatorAccount())agentUsage.plan='beta_pro';
       if(isCreatorAccount())agentUsage.plan='creator';
       if(isFriendsFamilyAccount())agentUsage.plan='friends_family';
+      removeImportedGoogleEventsForCreator();
       if(!agentChats.length){activeAgentChatId='chat_'+Date.now();agentChats=[{id:activeAgentChatId,title:'Current chat',created:Date.now(),updated:Date.now(),messages:[]}];}
       if(!agentChats.some(c=>c.id===activeAgentChatId))activeAgentChatId=agentChats[0].id;
       saveLocalState();
@@ -1483,9 +1494,10 @@ function saveEvent(){
   const repeat=document.getElementById('ev-repeat').checked;
   const rdays=selectedRepeatDays();
   const repeatEnd=document.getElementById('ev-repeat-end').value;
-  const ev={id:editingId||nextId++,title,cat:selCat,date:document.getElementById('ev-date').value,time:start,end,dur,allDay,notes:document.getElementById('ev-notes').value,gtype:firstGoal?.type||'personal',gid:gids[0]||null,gids,skills:[...evSelectedSkills],repeatEnd:repeat?repeatEnd:''};
+  const existing=editingId?events.find(e=>e.id===editingId):null;
+  const ev={id:editingId||nextId++,title,cat:selCat,date:document.getElementById('ev-date').value,time:start,end,dur,allDay,notes:document.getElementById('ev-notes').value,gtype:firstGoal?.type||'personal',gid:gids[0]||null,gids,skills:[...evSelectedSkills],repeatEnd:repeat?repeatEnd:'',googleExportEventId:existing?.googleExportEventId||'',googleExportLink:existing?.googleExportLink||'',googleExportedAt:existing?.googleExportedAt||''};
   if(editingId){const i=events.findIndex(e=>e.id===editingId);if(i>=0)events[i]=ev;editingId=null;}else events.push(ev);
-  if(repeat&&rdays.length){const root='rep_'+Date.now();ev.repeatRoot=root;repeatDates(ev.date,rdays,repeatEnd).filter(ds=>ds!==ev.date).forEach(ds=>events.push({...ev,id:nextId++,date:ds,repeatRoot:root}));}
+  if(repeat&&rdays.length){const root='rep_'+Date.now();ev.repeatRoot=root;repeatDates(ev.date,rdays,repeatEnd).filter(ds=>ds!==ev.date).forEach(ds=>events.push({...ev,id:nextId++,date:ds,repeatRoot:root,googleExportEventId:'',googleExportLink:'',googleExportedAt:''}));}
   persistState();closeModal();render();
 }
 
