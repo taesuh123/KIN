@@ -39,7 +39,7 @@ Beta Pro users can keep using the Personal Agent, but the app tracks an estimate
 
 The Account profile is also passed into the agent context so responses can become more personalized. Notification preferences are saved now; the Resend/Vercel Cron sender can read `users/{uid}/settings/notifications` when daily briefing delivery is added.
 
-Google Calendar sync is available to signed-in users from Account > Profile. Enable the Google Calendar API in the same Google Cloud project and make sure the OAuth consent screen includes the Calendar read-only scope. The app imports Google Calendar events into Goaltrack and updates previously synced events by Google event ID instead of duplicating them.
+Google Calendar sync is available to signed-in users from Account > Profile. It uses Google Identity Services for a Calendar-only access token instead of re-running Firebase sign-in. Enable the Google Calendar API in the same Google Cloud project, make sure the OAuth consent screen includes the Calendar read-only scope, and paste the Web OAuth Client ID into `googleCalendarClientId` in `index.html`. The app imports Google Calendar events into Goaltrack and updates previously synced events by Google event ID instead of duplicating them.
 
 ## Daily Snapshot Setup
 

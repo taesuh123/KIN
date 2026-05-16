@@ -7,6 +7,7 @@
 <meta name="description" content="A private calendar, goals, habits, and progress tracker that stores data in your browser.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -832,6 +833,8 @@ const firebaseConfig = {
   messagingSenderId: "364942849046",
   appId: "1:364942849046:web:2f001cc02e7ebcb2927137"
 };
+const googleCalendarClientId = "PASTE_GOOGLE_OAUTH_WEB_CLIENT_ID.apps.googleusercontent.com";
+window.goaltrackCalendarClientId = googleCalendarClientId;
 
 const hasFirebaseConfig = !firebaseConfig.apiKey.startsWith("PASTE_") && !firebaseConfig.projectId.startsWith("PASTE_");
 
@@ -844,7 +847,6 @@ if (hasFirebaseConfig) {
   const auth = getAuth(app);
   const db = getFirestore(app);
   const provider = new GoogleAuthProvider();
-  provider.addScope("https://www.googleapis.com/auth/calendar.readonly");
   const appStateRef = uid => doc(db, "users", uid, "appState", "main");
   const settingsRef = (uid, name) => doc(db, "users", uid, "settings", name);
 
@@ -854,10 +856,7 @@ if (hasFirebaseConfig) {
     async signIn() {
       await signInWithPopup(auth, provider);
     },
-    async syncGoogleCalendar() {
-      const result = await signInWithPopup(auth, provider);
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      const token = credential?.accessToken;
+    async syncGoogleCalendar(token) {
       if (!token) throw new Error("Google Calendar permission was not granted.");
       const start = new Date();
       start.setDate(start.getDate() - 30);
@@ -1077,8 +1076,9 @@ function openLoginModal(){updateLoginUI();renderAccountTools();document.getEleme
 function closeLoginModal(){document.getElementById('login-modal-bg').classList.remove('open');}
 async function handleGoogleLogin(){try{await window.goaltrackFirebase?.signIn?.();}catch(err){alert('Google sign-in failed: '+(err.message||err));}}
 async function handleGoogleLogout(){try{await window.goaltrackFirebase?.signOut?.();}catch(err){alert('Sign out failed: '+(err.message||err));}}
+function getCalendarAccessToken(){return new Promise((resolve,reject)=>{try{const clientId=window.goaltrackCalendarClientId||'';if(!clientId||clientId.startsWith('PASTE_'))throw new Error('Calendar sync needs your Google OAuth Web Client ID pasted into googleCalendarClientId in index.html.');if(!window.google?.accounts?.oauth2)throw new Error('Google Calendar sign-in tools are still loading. Try again in a few seconds.');const client=google.accounts.oauth2.initTokenClient({client_id:clientId,scope:'https://www.googleapis.com/auth/calendar.readonly',prompt:'consent',callback:resp=>{if(resp.error)reject(new Error(resp.error_description||resp.error));else resolve(resp.access_token);}});client.requestAccessToken();}catch(err){reject(err);}});}
 function googleEventDateTime(item){const allDay=!!item.start?.date&&!item.start?.dateTime,startRaw=item.start?.dateTime||item.start?.date,endRaw=item.end?.dateTime||item.end?.date||startRaw,start=new Date(startRaw),end=new Date(endRaw);if(allDay)return{date:item.start.date,time:'',end:'',dur:0,allDay:true};const pad=n=>String(n).padStart(2,'0'),date=start.getFullYear()+'-'+pad(start.getMonth()+1)+'-'+pad(start.getDate()),time=pad(start.getHours())+':'+pad(start.getMinutes()),endTime=pad(end.getHours())+':'+pad(end.getMinutes());return{date,time,end:endTime,dur:Math.max(15,Math.round((end-start)/60000)||60),allDay:false};}
-async function syncGoogleCalendar(){const status=document.getElementById('calendar-sync-status');try{if(!window.goaltrackFirebase?.currentUser)throw new Error('Sign in first.');if(status)status.textContent='Syncing...';const items=await window.goaltrackFirebase.syncGoogleCalendar();let added=0,updated=0;items.forEach(item=>{if(!item.id||!item.start)return;const dt=googleEventDateTime(item),googleEventId=item.calendarId+'::'+item.id,existing=events.find(e=>e.googleEventId===googleEventId),base={title:item.summary||'(No title)',cat:existing?.cat||'personal',date:dt.date,time:dt.time,end:dt.end,dur:dt.dur,allDay:dt.allDay,notes:item.description||existing?.notes||'',gtype:existing?.gtype||'personal',gid:existing?.gid||null,gids:existing?.gids||[],skills:existing?.skills||[],googleEventId,googleCalendarId:item.calendarId,googleCalendarName:item.calendarName};if(existing){Object.assign(existing,base);updated++;}else{events.push({id:nextId++,...base});added++;}});persistState();render();if(status){status.textContent='Synced '+added+' new, '+updated+' updated';setTimeout(()=>status.textContent='',3200);}}catch(err){if(status){status.textContent=err.message||'Sync failed';setTimeout(()=>status.textContent='',3600);}else alert(err.message||err);}}
+async function syncGoogleCalendar(){const status=document.getElementById('calendar-sync-status');try{if(!window.goaltrackFirebase?.currentUser)throw new Error('Sign in first.');if(status)status.textContent='Connecting...';const token=await getCalendarAccessToken();if(status)status.textContent='Syncing...';const items=await window.goaltrackFirebase.syncGoogleCalendar(token);let added=0,updated=0;items.forEach(item=>{if(!item.id||!item.start)return;const dt=googleEventDateTime(item),googleEventId=item.calendarId+'::'+item.id,existing=events.find(e=>e.googleEventId===googleEventId),base={title:item.summary||'(No title)',cat:existing?.cat||'personal',date:dt.date,time:dt.time,end:dt.end,dur:dt.dur,allDay:dt.allDay,notes:item.description||existing?.notes||'',gtype:existing?.gtype||'personal',gid:existing?.gid||null,gids:existing?.gids||[],skills:existing?.skills||[],googleEventId,googleCalendarId:item.calendarId,googleCalendarName:item.calendarName};if(existing){Object.assign(existing,base);updated++;}else{events.push({id:nextId++,...base});added++;}});persistState();render();if(status){status.textContent='Synced '+added+' new, '+updated+' updated';setTimeout(()=>status.textContent='',3200);}}catch(err){if(status){status.textContent=err.message||'Sync failed';setTimeout(()=>status.textContent='',5200);}else alert(err.message||err);}}
 async function onGoalTrackFirebaseAuth(user){
   firebaseUser=user||null;cloudReady=!!user;updateLoginUI();
   if(!user)return;
