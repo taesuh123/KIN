@@ -182,7 +182,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .habit-customize-panel.open{display:block}
 .habit-toggle-grid{display:grid;grid-template-columns:1fr;gap:7px}
 .habit-toggle-grid label{display:flex;align-items:center;gap:8px;background:var(--bg);border:.5px solid var(--border);border-radius:10px;padding:8px 9px;font:800 12px 'DM Sans',sans-serif;color:var(--text-muted);cursor:pointer}
-.habit-dynamic-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.25rem;align-items:stretch}
+.habit-dynamic-grid{display:grid;grid-template-columns:repeat(var(--habit-cols,4),minmax(0,1fr));gap:1.25rem;align-items:start;grid-auto-flow:dense}
 .habit-card-wide{grid-column:span 2}
 .habit-skills-row{display:block}
 .panel{background:var(--surface);border-radius:var(--r);border:.5px solid var(--border-strong);padding:1.25rem}
@@ -1353,12 +1353,14 @@ function renderHabits(){
   if(habitSections.heatmaps!==false)cards.push('<div class="habit-card-wide">'+heatmapPair+'</div>');
   if(habitSections.activeTime!==false)cards.push(activeTimeCard);
   if(habitSections.activeDays!==false)cards.push(activeDaysCard);
-  const customLayout='<div class="habit-dynamic-grid">'+(cards.length?cards.join(''):'<div class="panel"><div class="empty-goals">Use Customize to turn at least one section back on.</div></div>')+'</div>'+(habitSections.skills!==false?skillsCard:'');
+  const customCols=habitCustomColumns(cards.length,habitSections.heatmaps!==false);
+  const customLayout='<div class="habit-dynamic-grid" style="--habit-cols:'+customCols+'">'+(cards.length?cards.join(''):'<div class="panel"><div class="empty-goals">Use Customize to turn at least one section back on.</div></div>')+'</div>'+(habitSections.skills!==false?skillsCard:'');
 
   el.innerHTML=
     '<div class="habit-header-row"><div class="page-title">My <span>Habits</span></div>'+customizePanel+'</div>'+
     (allVisible?originalLayout:customLayout);
 }
+function habitCustomColumns(count,hasHeatmaps){const w=window.innerWidth||1400,max=w<760?1:w<1100?2:w<1600?3:w<1980?4:5;if(count<=1)return 1;if(max<=2)return Math.min(count,max);if(hasHeatmaps&&count>=4)return Math.min(3,max);if(count===6)return Math.min(3,max);if(count===5)return Math.min(max>=5?5:3,max);if(count===7)return Math.min(4,max);return Math.min(count,max);}
 
 /* ── PROGRESS ── */
 function extractWeight(n){if(!n)return null;const m=/weight[:\s]+(\d+\.?\d*)/i.exec(n)||/(\d+\.?\d*)\s*lbs?/i.exec(n);return m?parseFloat(m[1]):null;}
