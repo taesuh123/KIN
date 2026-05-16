@@ -398,9 +398,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .btn-danger:hover{opacity:.88}
 .confirm-copy{color:var(--text-muted);font-size:14px;line-height:1.45;margin-top:-2px}
 .account-tools{display:none;margin-top:1rem;border-top:.5px solid var(--border);padding-top:1rem}
-.account-tabs{display:flex;gap:6px;background:var(--surface2);border-radius:var(--r-sm);padding:4px;margin-bottom:1rem}
-.account-tab{flex:1;border:none;background:transparent;border-radius:9px;padding:8px 10px;font:700 12.5px 'DM Sans',sans-serif;color:var(--text-muted);cursor:pointer}
-.account-tab.active{background:var(--surface);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.account-section-menu{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--bg);border:.5px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:1rem}
+.account-section-kicker{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text-light);margin-bottom:2px}
+.account-section-title{font-size:13px;font-weight:800;color:var(--text)}
+.account-section-select{appearance:none;min-width:190px;border:.5px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:10px;padding:8px 30px 8px 11px;font:800 12.5px 'DM Sans',sans-serif;cursor:pointer;background-image:linear-gradient(45deg,transparent 50%,var(--text-light) 50%),linear-gradient(135deg,var(--text-light) 50%,transparent 50%);background-position:calc(100% - 15px) 50%,calc(100% - 10px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+.account-section-select:focus{outline:1px solid var(--accent)}
 .account-panel{display:none}
 .account-panel.active{display:block}
 .account-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -416,6 +418,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);hei
 .message-label-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:5px}
 .message-label-row .form-label{margin-bottom:0}
 .online-toggle{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:800;color:var(--accent);background:var(--accent-light);border-radius:999px;padding:5px 9px}
+.policy-copy{display:flex;flex-direction:column;gap:13px;max-height:430px;overflow-y:auto;padding-right:4px}
+.policy-block{background:var(--bg);border:.5px solid var(--border);border-radius:var(--r-sm);padding:12px}
+.policy-heading{font-size:13px;font-weight:900;color:var(--text);margin-bottom:6px}
+.policy-text{font-size:12.5px;color:var(--text-muted);line-height:1.5}
+.policy-text ul{margin:6px 0 0 18px;padding:0}
+.policy-text li{margin:4px 0}
+.policy-note{font-size:11.5px;color:var(--text-light);line-height:1.45}
 .cat-pills{display:flex;gap:6px;flex-wrap:wrap}
 .cat-pill{padding:4px 10px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1.5px solid transparent;transition:all .12s;opacity:.65}
 .cat-pill.selected{opacity:1;border-color:currentColor}
@@ -777,9 +786,16 @@ select.form-input{appearance:none}
       <div class="login-copy" id="login-copy">Sign in with Google to save your GoalTrack data to Firebase and access it later.</div>
       <button class="google-btn" id="google-login-btn" onclick="handleGoogleLogin()">Continue with Google</button>
       <div class="account-tools" id="creator-account-tools">
-        <div class="account-tabs">
-          <button class="account-tab active" id="account-tab-profile" onclick="switchAccountTab('profile')">Profile</button>
-          <button class="account-tab" id="account-tab-notifications" onclick="switchAccountTab('notifications')">Notifications</button>
+        <div class="account-section-menu">
+          <div>
+            <div class="account-section-kicker">Account Settings</div>
+            <div class="account-section-title" id="account-section-title">Profile</div>
+          </div>
+          <select class="account-section-select" id="account-section-select" onchange="switchAccountTab(this.value)">
+            <option value="profile">Profile</option>
+            <option value="notifications">Notifications</option>
+            <option value="terms">Terms & Privacy</option>
+          </select>
         </div>
         <div class="account-panel active" id="account-panel-profile">
           <div class="account-grid">
@@ -812,6 +828,53 @@ select.form-input{appearance:none}
           <div class="form-group">
             <div class="message-label-row"><label class="form-label">Personal message</label><label class="online-toggle" id="notif-online-label"><input type="checkbox" id="notif-online"/> Online</label></div>
             <textarea class="form-input account-textarea" id="notif-message-text" placeholder="Write your own message. If Online is on, this becomes the prompt, e.g. Bible verse about motivation."></textarea>
+          </div>
+        </div>
+        <div class="account-panel" id="account-panel-terms">
+          <div class="policy-copy">
+            <div class="policy-block">
+              <div class="policy-heading">Terms of Service</div>
+              <div class="policy-text">Goaltrack is a planning and self-improvement tool for tracking calendar events, goals, habits, progress, and AI-assisted suggestions. By using Goaltrack, you agree to use it responsibly and understand that the app does not provide medical, legal, financial, or professional advice.</div>
+            </div>
+            <div class="policy-block">
+              <div class="policy-heading">Your Account</div>
+              <div class="policy-text">You sign in with Google through Firebase Authentication. You are responsible for keeping access to your Google account secure. Goaltrack may limit certain features, such as the Personal Agent, Daily Snapshot, and Google Calendar sync, based on your account tier or manual approval status.</div>
+            </div>
+            <div class="policy-block">
+              <div class="policy-heading">Your Data</div>
+              <div class="policy-text">Goaltrack stores app data connected to your Firebase user ID, including goals, events, habits, progress signals, profile preferences, notification settings, and agent chat history when the agent is enabled. This data is used to make the app work and personalize your experience.</div>
+            </div>
+            <div class="policy-block">
+              <div class="policy-heading">Google Calendar Sync</div>
+              <div class="policy-text">When enabled for approved users, Goaltrack sends Goaltrack-created events to your primary Google Calendar. Goaltrack does not import events from Google Calendar into the app. You can revoke Google permissions from your Google Account settings at any time.</div>
+            </div>
+            <div class="policy-block">
+              <div class="policy-heading">AI Features</div>
+              <div class="policy-text">If you use the Personal Agent or online message generation, relevant context from your Goaltrack account may be sent to an AI provider to generate a response. AI output can be incomplete or incorrect, so you should review suggestions before relying on them.</div>
+            </div>
+            <div class="policy-block">
+              <div class="policy-heading">Email Notifications</div>
+              <div class="policy-text">If you opt in to Goaltrack Daily Snapshot emails, Goaltrack may send you daily summaries using your selected settings. You can turn this off in Notifications. Transactional or account-related emails may still be sent when needed to operate the service.</div>
+            </div>
+            <div class="policy-block">
+              <div class="policy-heading">Privacy Policy</div>
+              <div class="policy-text">Goaltrack collects only the information needed to provide the app experience:
+                <ul>
+                  <li>Google sign-in identity, such as your email address.</li>
+                  <li>Goaltrack content you create, including goals, events, notes, skills, habits, progress, profile details, and settings.</li>
+                  <li>Usage information needed to enforce beta limits, free trials, and feature access.</li>
+                </ul>
+              </div>
+            </div>
+            <div class="policy-block">
+              <div class="policy-heading">Data Sharing</div>
+              <div class="policy-text">Goaltrack does not sell your personal data. Data may be processed by service providers needed to run the app, such as Firebase, Vercel, Resend, Google APIs, and OpenAI or another AI provider if AI features are enabled.</div>
+            </div>
+            <div class="policy-block">
+              <div class="policy-heading">Deleting Data</div>
+              <div class="policy-text">You can delete goals, events, chats, and settings inside the app where available. If you need full account data deletion, contact Goaltrack support from the email associated with your account.</div>
+            </div>
+            <div class="policy-note">Draft notice: this starter wording is provided for the beta version of Goaltrack and should be reviewed before public launch or paid subscriptions.</div>
           </div>
         </div>
         <datalist id="timezone-options"></datalist>
@@ -1074,7 +1137,7 @@ function agentUsageLabel(){const tier=accountTier();if(tier==='creator')return'C
 function agentStatusClass(){const tier=accountTier();if(tier==='creator')return'creator';if(tier==='pro')return'pro';if(tier==='friends_family'||tier==='beta'||tier==='beta_pro')return'beta';return'free';}
 function trackAgentCost(cost){const value=Number(cost)||0;if(!value)return;agentUsage.monthlySpend=agentUsage.monthlySpend||{};const month=currentAgentMonth();agentUsage.monthlySpend[month]=Number(((Number(agentUsage.monthlySpend[month])||0)+value).toFixed(6));}
 function updateAgentAccessUI(){const tab=document.getElementById('agent-nav-tab');if(tab)tab.style.display=canUseAgent()?'':'none';if(currentPage==='agent'&&!canUseAgent())switchPage('calendar');}
-function switchAccountTab(tab){document.querySelectorAll('.account-tab').forEach(el=>el.classList.toggle('active',el.id==='account-tab-'+tab));document.querySelectorAll('.account-panel').forEach(el=>el.classList.toggle('active',el.id==='account-panel-'+tab));}
+function switchAccountTab(tab){const labels={profile:'Profile',notifications:'Notifications',terms:'Terms & Privacy'};document.querySelectorAll('.account-panel').forEach(el=>el.classList.toggle('active',el.id==='account-panel-'+tab));const sel=document.getElementById('account-section-select');if(sel)sel.value=tab;const title=document.getElementById('account-section-title');if(title)title.textContent=labels[tab]||'Account';}
 function setInputValue(id,value){const el=document.getElementById(id);if(el)el.value=value||'';}
 function setCheckedValue(id,value){const el=document.getElementById(id);if(el)el.checked=!!value;}
 function populateTimezoneOptions(){const list=document.getElementById('timezone-options');if(!list||list.dataset.ready)return;const fallback=['America/New_York','America/Chicago','America/Denver','America/Los_Angeles','America/Phoenix','America/Anchorage','Pacific/Honolulu','UTC','Europe/London','Europe/Paris','Asia/Tokyo','Australia/Sydney'];const zones=(Intl.supportedValuesOf?Intl.supportedValuesOf('timeZone'):fallback);list.innerHTML=zones.map(z=>'<option value="'+esc(z)+'"></option>').join('');list.dataset.ready='1';}
