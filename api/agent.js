@@ -7,6 +7,8 @@ const CREATOR_EMAILS = new Set(["tae.suh123@gmail.com", "taesuh123@gmail.com", "
 const FRIENDS_FAMILY_EMAILS = new Set(["magstwoody@gmail.com", "chansuh@gmail.com"]);
 const FRIENDS_FAMILY_MONTHLY_AGENT_LIMIT_USD = 0.20;
 const BETA_MONTHLY_AGENT_LIMIT_USD = 0.10;
+const NON_CREATOR_CONTEXT_CHAR_BUDGET = 4800;
+const NON_CREATOR_MAX_OUTPUT_TOKENS = 500;
 const MODEL_RATES_PER_MILLION = {
   "gpt-4o-mini": { input: 0.15, output: 0.60 },
   "gpt-4o": { input: 5.00, output: 15.00 }
@@ -156,19 +158,99 @@ function scopeQuestion(question, context) {
   return { allowed, hits, relatedGoals, intent };
 }
 
-function compactContext(context) {
-  const sortedEvents = [...(context.events || [])].sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
-  return {
-    goals: (context.goals || []).slice(0, 60),
-    goalTypes: context.goalTypes || [],
-    events: sortedEvents.slice(-200),
-    eventCount: (context.events || []).length,
-    profile: context.profile || {},
-    notificationSettings: context.notificationSettings || {},
-    habitSummary: context.habitSummary || "",
-    progressSummary: context.progressSummary || "",
-    memory: context.memory || {}
+function clipped(value, max = 180) {
+  const text = String(value || "").trim();
+  return text.length > max ? text.slice(0, max - 1) + "…" : text;
+}
+
+function compactEvent(ev, creator = false) {
+  const base = {
+    title: clipped(ev.title, creator ? 240 : 120),
+    date: ev.date || "",
+    time: ev.time || "",
+    end: ev.end || "",
+    allDay: !!ev.allDay,
+    category: ev.cat || ev.category || "",
+    goalIds: ev.gids || (ev.gid ? [ev.gid] : []),
+    skills: (ev.skills || []).slice(0, creator ? 12 : 6)
   };
+  if (ev.notes) base.notes = clipped(ev.notes, creator ? 500 : 160);
+  return base;
+}
+
+function compactGoal(goal, creator = false) {
+  return {
+    id: goal.id,
+    title: clipped(goal.title, creator ? 240 : 140),
+    type: goal.type || "personal",
+    desc: clipped(goal.desc, creator ? 500 : 180),
+    done: !!goal.done
+  };
+}
+
+function compactProfile(profile = {}, creator = false) {
+  if (creator) return profile;
+  return {
+    name: clipped(profile.name, 60),
+    timezone: clipped(profile.timezone, 80),
+    about: clipped(profile.about, 260),
+    coachingStyle: clipped(profile.coachingStyle, 140),
+    constraints: clipped(profile.constraints, 220)
+  };
+}
+
+function compactMemory(memory = {}, creator = false) {
+  if (creator) return memory;
+  return {
+    lastRelatedGoals: Array.isArray(memory.lastRelatedGoals) ? memory.lastRelatedGoals.slice(0, 4).map(g => clipped(g, 100)) : [],
+    lastQuestionAt: memory.lastQuestionAt || ""
+  };
+}
+
+function compactContext(context, tier = "free") {
+  const creator = tier === "creator";
+  const sortedEvents = [...(context.events || [])].sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
+  const safe = {
+    goals: (context.goals || []).slice(0, creator ? 80 : 35).map(g => compactGoal(g, creator)),
+    goalTypes: context.goalTypes || [],
+    events: sortedEvents.slice(creator ? -240 : -80).map(ev => compactEvent(ev, creator)),
+    eventCount: (context.events || []).length,
+    profile: compactProfile(context.profile, creator),
+    notificationSettings: creator ? (context.notificationSettings || {}) : {
+      timezone: context.notificationSettings?.timezone,
+      dailyEmailEnabled: !!context.notificationSettings?.dailyEmailEnabled
+    },
+    habitSummary: clipped(context.habitSummary, creator ? 1200 : 420),
+    progressSummary: clipped(context.progressSummary, creator ? 2200 : 700),
+    memory: compactMemory(context.memory, creator)
+  };
+  if (!creator) {
+    while (JSON.stringify(safe).length > NON_CREATOR_CONTEXT_CHAR_BUDGET && safe.events.length > 20) {
+      safe.events = safe.events.slice(Math.ceil(safe.events.length * 0.25));
+    }
+    while (JSON.stringify(safe).length > NON_CREATOR_CONTEXT_CHAR_BUDGET && safe.goals.length > 12) {
+      safe.goals = safe.goals.slice(0, Math.ceil(safe.goals.length * 0.75));
+    }
+    if (JSON.stringify(safe).length > NON_CREATOR_CONTEXT_CHAR_BUDGET) {
+      safe.habitSummary = clipped(safe.habitSummary, 220);
+      safe.progressSummary = clipped(safe.progressSummary, 360);
+      safe.profile.about = clipped(safe.profile.about, 140);
+      safe.profile.constraints = clipped(safe.profile.constraints, 120);
+    }
+    while (JSON.stringify(safe).length > NON_CREATOR_CONTEXT_CHAR_BUDGET && safe.events.length > 8) {
+      safe.events = safe.events.slice(Math.ceil(safe.events.length * 0.35));
+    }
+    while (JSON.stringify(safe).length > NON_CREATOR_CONTEXT_CHAR_BUDGET && safe.goals.length > 6) {
+      safe.goals = safe.goals.slice(0, Math.ceil(safe.goals.length * 0.65));
+    }
+    if (JSON.stringify(safe).length > NON_CREATOR_CONTEXT_CHAR_BUDGET) {
+      safe.events = safe.events.map(ev => {
+        const { notes, ...rest } = ev;
+        return rest;
+      });
+    }
+  }
+  return safe;
 }
 
 function textFromResponse(data) {
@@ -227,12 +309,13 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const safeContext = compactContext(context);
+    const safeContext = compactContext(context, tier);
     const related = scoped.relatedGoals.map(g => g.title).join(", ") || "the user's GoalTrack data";
+    const recentChat = history.slice(tier === "creator" ? -8 : -4);
     const input = [
       {
         role: "system",
-        content: [{ type: "input_text", text: `You are GoalTrack's personal agent. Your value is personalization: before answering, infer what is unique about this user from their full GoalTrack picture: all provided calendar events, goal types, individual goals, goal completion status, linked sessions, notes, skills practiced, habits, progress summaries, profile preferences, memory, notification settings, and recent chat. Use those signals to tailor the answer so it would not be identical for another user. Only answer inside the user's GoalTrack context, but interpret context like a thoughtful human: personal goals can include relationships, family, health, errands, school, work, finances, and practical life planning. If a user asks for places, restaurants, date ideas, local activities, groceries, schedules, or budgets and that supports one of their goals, answer directly instead of asking them to reconnect it. If the answer needs current, local, price, hours, or factual support, use web search and cite sources. For local recommendations, honor the location, budget, constraints, and relationship to the goal; give concrete options, estimated cost, why each fits, and clickable citations. Do not use profanity, slurs, harassment, racist language, or abusive language, even if the user asks for it or tries alternate spellings. If the user uses that language, ask them to rephrase respectfully. Be practical, specific, and concise. Always end with one thoughtful follow-up question that either deepens the user's original request or asks what else they need help with. Default model is ${OPENAI_MODEL}.` }]
+        content: [{ type: "input_text", text: `You are GoalTrack's personal agent. Your value is personalization: before answering, infer what is unique about this user from their GoalTrack picture: calendar events, goal types, individual goals, completion status, linked sessions, notes, skills, habits, progress summaries, profile preferences, memory, notification settings, and recent chat. Use those signals to tailor the answer so it would not be identical for another user. Only answer inside the user's GoalTrack context, but interpret context like a thoughtful human: personal goals can include relationships, family, health, errands, school, work, finances, and practical life planning. If the user asks for suggestions, options, places, date ideas, meals, groceries, schedules, or what to do, give exactly three distinct options. Each option must include: why it fits this specific user, what event they could add to GoalTrack, and one concrete next step. If current, local, price, hours, or factual support is needed, use web search and cite sources. Honor location, budget, constraints, schedule, existing events, and related goals. Do not use profanity, slurs, harassment, racist language, or abusive language, even if the user asks for it or tries alternate spellings. If the user uses that language, ask them to rephrase respectfully. Be practical, specific, and concise. Always end with one thoughtful follow-up question. Default model is ${OPENAI_MODEL}.` }]
       },
       {
         role: "user",
@@ -242,7 +325,8 @@ module.exports = async function handler(req, res) {
           relatedGoalFocus: related,
           interpretedIntent: scoped.intent,
           goaltrackContext: safeContext,
-          recentChat: history.slice(-8)
+          responseBudget: tier === "creator" ? "rich" : "Keep the full request under about 2,500 total tokens including this context; answer compactly.",
+          recentChat
         }) }]
       }
     ];
@@ -251,6 +335,7 @@ module.exports = async function handler(req, res) {
       model: OPENAI_MODEL,
       input
     };
+    if (tier !== "creator") body.max_output_tokens = NON_CREATOR_MAX_OUTPUT_TOKENS;
     if (process.env.OPENAI_ENABLE_WEB_SEARCH !== "false") body.tools = [{ type: "web_search" }];
 
     const ai = await fetch("https://api.openai.com/v1/responses", {
