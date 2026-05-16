@@ -86,7 +86,8 @@ function deriveTopicWords(context) {
     [["school", "academic", "class", "exam", "paper", "study"], ["study", "homework", "deadline", "rubric", "essay", "research", "exam", "grade", "course"]],
     [["finance", "budget", "money", "accounting"], ["excel", "budget", "saving", "spending", "debt", "financial", "forecast", "analysis"]],
     [["career", "professional", "internship", "resume"], ["resume", "interview", "linkedin", "networking", "job", "internship", "career"]],
-    [["personal", "health", "doctor"], ["routine", "appointment", "wellness", "schedule", "habit"]]
+    [["personal", "health", "doctor"], ["routine", "appointment", "wellness", "schedule", "habit"]],
+    [["girlfriend", "boyfriend", "partner", "relationship", "wife", "husband", "family", "friend"], ["date", "dates", "quality", "time", "together", "places", "restaurant", "dinner", "activity", "activities", "weekend", "budget", "romantic"]]
   ];
   const base = [...set].join(" ");
   topicMap.forEach(([triggers, extras]) => {
@@ -96,19 +97,26 @@ function deriveTopicWords(context) {
 }
 
 function scopeQuestion(question, context) {
-  const qWords = words(question).filter(w => !["what", "should", "could", "would", "about", "help", "give", "make", "tell", "please"].includes(w));
+  const rawQuestion = String(question || "");
+  const qWords = words(rawQuestion).filter(w => !["what", "should", "could", "would", "about", "help", "give", "make", "tell", "please", "need"].includes(w));
   const topics = deriveTopicWords(context);
   const hits = qWords.filter(w => topics.has(w));
+  const goalCorpus = (context.goals || []).map(g => `${g.title || ""} ${g.desc || ""} ${g.type || ""}`).join(" ");
   const hasGoals = (context.goals || []).some(g => !g.done);
   const generalCoaching = /\b(next|plan|improve|progress|habit|routine|schedule|consistent|consistency|advice|feedback|goal|goals)\b/i.test(question);
-  const practicalPlanning = /\b(grocery|groceries|shopping|meal|protein|budget|study|workout|fitness|schedule|calendar|list)\b/i.test(question);
-  const offTopic = /\b(dog|cat|movie|celebrity|weather|politics|vacation|game)\b/i.test(question);
-  const allowed = hits.length > 0 || ((hasGoals || practicalPlanning) && (generalCoaching || practicalPlanning) && !offTopic);
+  const practicalPlanning = /\b(grocery|groceries|shopping|meal|protein|budget|under|total|cheap|affordable|study|workout|fitness|schedule|calendar|list|place|places|restaurant|restaurants|cafe|cafes|date|dates|activity|activities|itinerary|where|visit|go)\b/i.test(question);
+  const hasRelationshipGoal = /\b(girlfriend|gf|boyfriend|bf|partner|relationship|wife|husband|spouse|date|dates|family|friend|friends|quality time|spend time|together)\b/i.test(goalCorpus);
+  const relationshipPlanning = hasRelationshipGoal && /\b(girlfriend|gf|boyfriend|bf|partner|relationship|date|dates|romantic|place|places|restaurant|restaurants|dinner|cafe|cafes|activity|activities|where|visit|go|together)\b/i.test(question);
+  const locationBudgetPlanning = practicalPlanning && /\b(under|budget|total|\$|cheap|affordable|near|in|around)\b/i.test(question);
+  const hardOffTopic = /\b(dog|cat|celebrity|politics|video game|gaming)\b/i.test(question) && !hits.length && !relationshipPlanning;
+  const allowed = hits.length > 0 || ((hasGoals || practicalPlanning) && (generalCoaching || practicalPlanning || relationshipPlanning || locationBudgetPlanning) && !hardOffTopic);
   const relatedGoals = (context.goals || []).filter(g => {
     const text = words(`${g.title} ${g.desc} ${g.type}`).join(" ");
-    return hits.some(h => text.includes(h)) || (allowed && generalCoaching);
+    const isRelationshipGoal = /\b(girlfriend|boyfriend|partner|relationship|wife|husband|spouse|family|friend|quality|time|together)\b/i.test(`${g.title} ${g.desc}`);
+    return hits.some(h => text.includes(h)) || (relationshipPlanning && isRelationshipGoal) || (allowed && generalCoaching);
   }).slice(0, 4);
-  return { allowed, hits, relatedGoals };
+  const intent = relationshipPlanning ? "relationship_planning" : practicalPlanning ? "practical_planning" : generalCoaching ? "goal_coaching" : "goal_related";
+  return { allowed, hits, relatedGoals, intent };
 }
 
 function compactContext(context) {
@@ -178,7 +186,7 @@ module.exports = async function handler(req, res) {
     const input = [
       {
         role: "system",
-        content: [{ type: "input_text", text: `You are GoalTrack's personal agent. Only answer inside the user's GoalTrack context. Use the provided goals, calendar events, habits, progress, and memory. If the answer needs current or factual support, use web search and cite sources. Be practical, specific, and concise. Always end with one thoughtful follow-up question that either deepens the user's original request or asks what else they need help with. Default model is ${OPENAI_MODEL}.` }]
+        content: [{ type: "input_text", text: `You are GoalTrack's personal agent. Only answer inside the user's GoalTrack context, but interpret context like a thoughtful human: personal goals can include relationships, family, health, errands, school, work, finances, and practical life planning. If a user asks for places, restaurants, date ideas, local activities, groceries, schedules, or budgets and that supports one of their goals, answer directly instead of asking them to reconnect it. If the answer needs current, local, price, hours, or factual support, use web search and cite sources. For local recommendations, honor the location, budget, constraints, and relationship to the goal; give concrete options, estimated cost, why each fits, and clickable citations. Be practical, specific, and concise. Always end with one thoughtful follow-up question that either deepens the user's original request or asks what else they need help with. Default model is ${OPENAI_MODEL}.` }]
       },
       {
         role: "user",
@@ -186,6 +194,7 @@ module.exports = async function handler(req, res) {
           userId: user.user_id,
           question,
           relatedGoalFocus: related,
+          interpretedIntent: scoped.intent,
           goaltrackContext: safeContext,
           recentChat: history.slice(-8)
         }) }]
