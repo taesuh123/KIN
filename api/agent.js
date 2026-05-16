@@ -72,6 +72,43 @@ function words(text) {
   return String(text || "").toLowerCase().match(/[a-z0-9]{3,}/g) || [];
 }
 
+function normalizeForSafety(text) {
+  return String(text || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[@]/g, "a")
+    .replace(/[!|1]/g, "i")
+    .replace(/[3]/g, "e")
+    .replace(/[0]/g, "o")
+    .replace(/[$5]/g, "s")
+    .replace(/[7]/g, "t")
+    .replace(/[8]/g, "b")
+    .replace(/[9]/g, "g")
+    .replace(/(.)\1{2,}/g, "$1$1");
+}
+
+function containsBannedLanguage(text) {
+  const normalized = normalizeForSafety(text);
+  const compact = normalized.replace(/[^a-z0-9]/g, "");
+  const tokens = normalized.match(/[a-z0-9]+/g) || [];
+  const bannedTokens = new Set([
+    "fuck", "fucking", "fucker", "fucked", "shit", "shitty", "bullshit", "bitch", "bitches", "bitching",
+    "asshole", "dick", "dicks", "cock", "cocks", "pussy", "cunt", "bastard", "damn", "hell",
+    "whore", "slut", "fag", "faggot", "retard", "retarded", "kike", "spic", "chink", "gook",
+    "wetback", "beaner", "coon", "jigaboo", "porchmonkey", "raghead", "towelhead", "sandnigger"
+  ]);
+  if (tokens.some(t => bannedTokens.has(t))) return true;
+  const compactPatterns = [
+    /f+u+c+k+/, /f+c+k+/, /m+o+t+h+e+r+f+u+c+k+/, /s+h+i+t+/, /s+h+t+/, /b+i+t+c+h+/, /b+t+c+h+/,
+    /a+s+s+h+o+l+e+/, /c+u+n+t+/, /c+n+t+/, /d+i+c+k+/, /p+u+s+s+y+/, /b+a+s+t+a+r+d+/,
+    /f+a+g+g+o+t+/, /f+g+g+t+/, /r+e+t+a+r+d+/, /w+h+o+r+e+/, /s+l+u+t+/,
+    /n+[i1]+[gq]+[gq]+[aeu3a@4]*r?/, /n+[i1]+[gq]+[aeu3a@4]+/, /n+[i1]+b+b+[aeu3a@4]+/,
+    /k+i+k+e+/, /c+h+i+n+k+/, /w+e+t+b+a+c+k+/, /b+e+a+n+e+r+/, /t+o+w+e+l+h+e+a+d+/, /r+a+g+h+e+a+d+/
+  ];
+  return compactPatterns.some(re => re.test(compact));
+}
+
 function deriveTopicWords(context) {
   const corpus = [
     ...(context.goals || []).flatMap(g => [g.title, g.desc, g.type]),
@@ -120,11 +157,14 @@ function scopeQuestion(question, context) {
 }
 
 function compactContext(context) {
+  const sortedEvents = [...(context.events || [])].sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
   return {
-    goals: (context.goals || []).slice(0, 30),
+    goals: (context.goals || []).slice(0, 60),
     goalTypes: context.goalTypes || [],
-    recentEvents: (context.events || []).slice(-50),
+    events: sortedEvents.slice(-200),
+    eventCount: (context.events || []).length,
     profile: context.profile || {},
+    notificationSettings: context.notificationSettings || {},
     habitSummary: context.habitSummary || "",
     progressSummary: context.progressSummary || "",
     memory: context.memory || {}
@@ -164,6 +204,12 @@ module.exports = async function handler(req, res) {
     const payload = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
     const { question, context = {}, history = [], accountTier, monthlySpend = 0 } = payload;
     if (!question || !String(question).trim()) return send(res, 400, { error: "Question is required." });
+    if (containsBannedLanguage(question)) {
+      return send(res, 200, {
+        blocked: true,
+        text: "I can help with your goals, planning, habits, and progress, but I cannot process profanity, slurs, or abusive language. Please rephrase your question respectfully."
+      });
+    }
     const tier = accountTierForUser(user, accountTier);
     const cap = monthlyCapForTier(tier);
     if (Number(monthlySpend) >= cap) {
@@ -186,7 +232,7 @@ module.exports = async function handler(req, res) {
     const input = [
       {
         role: "system",
-        content: [{ type: "input_text", text: `You are GoalTrack's personal agent. Only answer inside the user's GoalTrack context, but interpret context like a thoughtful human: personal goals can include relationships, family, health, errands, school, work, finances, and practical life planning. If a user asks for places, restaurants, date ideas, local activities, groceries, schedules, or budgets and that supports one of their goals, answer directly instead of asking them to reconnect it. If the answer needs current, local, price, hours, or factual support, use web search and cite sources. For local recommendations, honor the location, budget, constraints, and relationship to the goal; give concrete options, estimated cost, why each fits, and clickable citations. Be practical, specific, and concise. Always end with one thoughtful follow-up question that either deepens the user's original request or asks what else they need help with. Default model is ${OPENAI_MODEL}.` }]
+        content: [{ type: "input_text", text: `You are GoalTrack's personal agent. Your value is personalization: before answering, infer what is unique about this user from their full GoalTrack picture: all provided calendar events, goal types, individual goals, goal completion status, linked sessions, notes, skills practiced, habits, progress summaries, profile preferences, memory, notification settings, and recent chat. Use those signals to tailor the answer so it would not be identical for another user. Only answer inside the user's GoalTrack context, but interpret context like a thoughtful human: personal goals can include relationships, family, health, errands, school, work, finances, and practical life planning. If a user asks for places, restaurants, date ideas, local activities, groceries, schedules, or budgets and that supports one of their goals, answer directly instead of asking them to reconnect it. If the answer needs current, local, price, hours, or factual support, use web search and cite sources. For local recommendations, honor the location, budget, constraints, and relationship to the goal; give concrete options, estimated cost, why each fits, and clickable citations. Do not use profanity, slurs, harassment, racist language, or abusive language, even if the user asks for it or tries alternate spellings. If the user uses that language, ask them to rephrase respectfully. Be practical, specific, and concise. Always end with one thoughtful follow-up question that either deepens the user's original request or asks what else they need help with. Default model is ${OPENAI_MODEL}.` }]
       },
       {
         role: "user",
